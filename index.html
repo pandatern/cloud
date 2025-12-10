@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chennai Cloud Vault | 25GB Private Storage Key</title>
+    <meta name="description" content="Secure, private 25GB storage for iPhone and Android users in india. Get your digital access key today.">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'brand-bg': '#0f172a',
+                        'brand-accent': '#3b82f6',
+                        'glass-border': 'rgba(255, 255, 255, 0.1)',
+                        'glass-bg': 'rgba(255, 255, 255, 0.05)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #050505;
+            color: white;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.15) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 20%);
+            background-attachment: fixed;
+        }
+
+        /* Glassmorphism Classes */
+        .glass-card {
+            background: rgba(20, 20, 25, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .glass-input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            transition: all 0.3s;
+        }
+        
+        .glass-input:focus {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #3b82f6;
+            outline: none;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+        }
+
+        .gradient-text {
+            background: linear-gradient(to right, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Smooth floating animation */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="antialiased" x-data="{ mobileMenuOpen: false, photos: 1000 }">
+
+    <nav class="fixed w-full z-50 glass-card border-b-0 border-b-glass-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-2">
+                    <i class="ph-fill ph-cloud-check text-blue-400 text-2xl"></i>
+                    <span class="font-bold text-xl tracking-tight">Panda<span class="text-blue-400">Cloud</span></span>
+                </div>
+                
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-8">
+                        <a href="#how-it-works" class="hover:text-blue-400 transition px-3 py-2 rounded-md text-sm font-medium">How it Works</a>
+                        <a href="#calculator" class="hover:text-blue-400 transition px-3 py-2 rounded-md text-sm font-medium">Calculator</a>
+                        <a href="#faq" class="hover:text-blue-400 transition px-3 py-2 rounded-md text-sm font-medium">FAQ</a>
+                        <a href="#get-key" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-blue-500/30">Get Key</a>
+                    </div>
+                </div>
+
+                <div class="-mr-2 flex md:hidden">
+                    <button @click="mobileMenuOpen = !mobileMenuOpen" type="button" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none">
+                        <i class="ph ph-list text-2xl" x-show="!mobileMenuOpen"></i>
+                        <i class="ph ph-x text-2xl" x-show="mobileMenuOpen"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="md:hidden glass-card border-t border-glass-border" x-show="mobileMenuOpen" x-transition>
+            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                <a href="#how-it-works" @click="mobileMenuOpen = false" class="text-gray-300 hover:text-white block px-3 py-2 rounded-md text-base font-medium">How it Works</a>
+                <a href="#calculator" @click="mobileMenuOpen = false" class="text-gray-300 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Calculator</a>
+                <a href="#get-key" @click="mobileMenuOpen = false" class="bg-blue-600 text-white block px-3 py-2 rounded-md text-base font-medium mt-4 text-center">Get Key</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="relative pt-32 pb-12 sm:pt-40 sm:pb-16 lg:pb-24 overflow-hidden">
+        <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center text-center">
+            
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-card border border-blue-500/30 text-blue-300 text-xs font-semibold mb-6 animate-pulse">
+                <span class="w-2 h-2 rounded-full bg-green-400"></span>
+                Now Available for iOS 19 & Android 15
+            </div>
+
+            <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight mb-6">
+                Your Private <span class="gradient-text">Digital Vault</span>
+            </h1>
+            
+            <p class="mt-4 max-w-2xl text-xl text-gray-400 mx-auto">
+                Stop deleting your memories. Get a <span class="text-white font-semibold">25GB Secret Key</span> to offload 8,000+ photos instantly.
+            </p>
+            <p class="mt-2 text-sm text-gray-500">
+                100% Private. No Ads. Made in Chennai.
+            </p>
+
+            <div class="mt-10 flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+                <a href="#get-key" class="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white transition-all duration-200 bg-blue-600 font-pj rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 hover:bg-blue-700 shadow-[0_0_30px_rgba(59,130,246,0.5)]">
+                    Request Access Key
+                    <i class="ph-bold ph-key ml-2 text-xl"></i>
+                </a>
+                <a href="#how-it-works" class="inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-gray-300 transition-all duration-200 glass-button rounded-xl hover:text-white">
+                    How it Works
+                </a>
+            </div>
+
+            <div class="mt-12 pt-8 border-t border-white/10 w-full max-w-3xl flex flex-wrap justify-center gap-8 text-gray-500 text-sm font-medium uppercase tracking-wide">
+                <div class="flex items-center gap-2"><i class="ph-fill ph-shield-check text-blue-500"></i> AWS S3 Security</div>
+                <div class="flex items-center gap-2"><i class="ph-fill ph-currency-inr text-green-500"></i> UPI Accepted</div>
+                <div class="flex items-center gap-2"><i class="ph-fill ph-map-pin text-red-500"></i> Chennai Support</div>
+            </div>
+        </div>
+    </div>
+
+    <section class="py-16 relative">
+        <div class="max-w-4xl mx-auto px-4">
+            <div class="glass-card rounded-2xl p-8 border border-red-500/20 shadow-[0_0_50px_rgba(239,68,68,0.1)] flex flex-col md:flex-row items-center gap-8">
+                <div class="w-full md:w-1/3 flex justify-center">
+                    <div class="bg-white/10 backdrop-blur-md rounded-2xl p-4 w-64 border border-white/10 animate-float">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="w-8 h-8 rounded-lg bg-red-500 flex items-center justify-center">
+                                <i class="ph-fill ph-warning text-white"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-semibold text-white">Storage Full</h3>
+                                <p class="text-xs text-gray-300">Cannot take photo</p>
+                            </div>
+                        </div>
+                        <div class="h-1 w-full bg-gray-700 rounded-full overflow-hidden">
+                            <div class="h-full bg-red-500 w-[98%]"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="w-full md:w-2/3 text-center md:text-left">
+                    <h2 class="text-2xl font-bold text-white mb-2">Hate seeing this message?</h2>
+                    <p class="text-gray-400">
+                        You don't need a new phone. You just need a place to put your old files. 
+                        Our vault works like a <b>Private Pen Drive</b> that lives on the internet.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="calculator" class="py-16 bg-black/30">
+        <div class="max-w-3xl mx-auto px-4 text-center">
+            <h2 class="text-3xl font-bold mb-8">What fits in 25GB?</h2>
+            
+            <div class="glass-card p-8 rounded-2xl">
+                <div class="mb-8">
+                    <label class="block text-left text-sm font-medium text-gray-400 mb-2">Adjust Photo Count</label>
+                    <input type="range" min="0" max="10000" step="100" x-model="photos" 
+                           class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                    <div class="mt-2 text-right text-blue-400 font-bold text-xl" x-text="photos + ' Photos'"></div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white/5 p-4 rounded-xl border border-white/5">
+                        <div class="text-3xl font-bold text-white mb-1" x-text="(photos * 3.5 / 1024).toFixed(1) + ' GB'"></div>
+                        <div class="text-xs text-gray-400 uppercase">Space Used</div>
+                    </div>
+                    <div class="bg-white/5 p-4 rounded-xl border border-white/5">
+                        <div class="text-3xl font-bold text-green-400 mb-1" x-text="(25 - (photos * 3.5 / 1024)).toFixed(1) + ' GB'"></div>
+                        <div class="text-xs text-gray-400 uppercase">Space Left</div>
+                    </div>
+                    <div class="bg-white/5 p-4 rounded-xl border border-white/5">
+                        <div class="text-3xl font-bold text-purple-400 mb-1">~3 Hours</div>
+                        <div class="text-xs text-gray-400 uppercase">Video Capacity Left</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="how-it-works" class="py-20 relative overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl font-bold text-white">How to use your Key</h2>
+                <p class="text-gray-400 mt-2">No complicated signup forms. 3 Simple Steps.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+                <div class="relative glass-card p-8 rounded-2xl text-center group hover:-translate-y-2 transition duration-300">
+                    <div class="w-16 h-16 mx-auto bg-blue-600/20 rounded-full flex items-center justify-center border border-blue-500/50 mb-6 relative z-10 backdrop-blur-xl">
+                        <i class="ph-fill ph-key text-3xl text-blue-400"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">1. Request Key</h3>
+                    <p class="text-gray-400 text-sm">Fill the form below. We will email your unique Vault Key & Secret Code.</p>
+                </div>
+
+                <div class="relative glass-card p-8 rounded-2xl text-center group hover:-translate-y-2 transition duration-300">
+                    <div class="w-16 h-16 mx-auto bg-purple-600/20 rounded-full flex items-center justify-center border border-purple-500/50 mb-6 relative z-10 backdrop-blur-xl">
+                        <i class="ph-fill ph-app-store-logo text-3xl text-purple-400"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">2. Download App</h3>
+                    <p class="text-gray-400 text-sm">Download the free <b>"Owlfiles"</b> or <b>"Documents"</b> app on your iPhone or Android.</p>
+                </div>
+
+                <div class="relative glass-card p-8 rounded-2xl text-center group hover:-translate-y-2 transition duration-300">
+                    <div class="w-16 h-16 mx-auto bg-green-600/20 rounded-full flex items-center justify-center border border-green-500/50 mb-6 relative z-10 backdrop-blur-xl">
+                        <i class="ph-fill ph-check-circle text-3xl text-green-400"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">3. Unlock Vault</h3>
+                    <p class="text-gray-400 text-sm">Enter your Key into the app. Your 25GB folder appears instantly.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="get-key" class="py-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="max-w-md mx-auto relative group">
+                <div class="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
+                
+                <div class="relative glass-card p-8 rounded-2xl border border-white/10">
+                    <div class="absolute top-0 right-0 -mt-4 -mr-4 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                        TRY RISK FREE
+                    </div>
+
+                    <h3 class="text-center text-white text-2xl font-bold mb-2">Request Access Key</h3>
+                    <p class="text-center text-gray-400 text-sm mb-6">Price: ₹59/month (Pay after 3 days)</p>
+
+                    <form action="https://formsubmit.co/shu-kuronai@proton.me" method="POST" class="space-y-4">
+                        
+                        <input type="hidden" name="_captcha" value="false">
+                        <input type="hidden" name="_subject" value="New Vault Key Request!">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Full Name</label>
+                            <input type="text" name="name" required placeholder="Your Name" 
+                                   class="w-full px-4 py-3 rounded-xl glass-input placeholder-gray-600">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">WhatsApp Number</label>
+                            <input type="tel" name="whatsapp" required placeholder="+91 98..." 
+                                   class="w-full px-4 py-3 rounded-xl glass-input placeholder-gray-600">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Device Type</label>
+                            <select name="device" class="w-full px-4 py-3 rounded-xl glass-input text-gray-300">
+                                <option value="Android" class="bg-gray-900">Android Phone</option>
+                                <option value="iPhone" class="bg-gray-900">iPhone / iPad</option>
+                                <option value="Computer" class="bg-gray-900">Windows / Mac</option>
+                            </select>
+                        </div>
+
+                        <div class="flex items-start gap-3 mt-4">
+                            <input type="checkbox" name="terms" required class="mt-1 w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-600">
+                            <label class="text-xs text-gray-400 leading-tight">
+                                I understand this is a paid service (₹59/mo) after the 3-day trial. I agree not to store illegal content.
+                            </label>
+                        </div>
+
+                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-4 rounded-xl hover:from-blue-500 hover:to-blue-400 transition transform hover:scale-[1.02] shadow-lg mt-4">
+                            Send Me The Key
+                        </button>
+                    </form>
+                    <p class="mt-4 text-center text-xs text-gray-500">
+                        <i class="ph-fill ph-lock-key"></i> Your details are sent securely via email.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="faq" class="py-16 bg-black/20">
+        <div class="max-w-3xl mx-auto px-4">
+            <h2 class="text-2xl font-bold mb-8 text-center">Common Questions</h2>
+            <div class="space-y-4" x-data="{ selected: null }">
+                
+                <div class="glass-card rounded-xl overflow-hidden">
+                    <button @click="selected !== 1 ? selected = 1 : selected = null" class="w-full px-6 py-4 text-left font-semibold flex justify-between items-center text-gray-200 hover:text-white">
+                        <span>Is this a scam?</span>
+                        <i class="ph-bold ph-caret-down transform transition-transform" :class="selected === 1 ? 'rotate-180' : ''"></i>
+                    </button>
+                    <div x-show="selected === 1" class="px-6 pb-4 text-sm text-gray-400 leading-relaxed">
+                        We understand the concern. That is why we offer a <b>3-Day Free Trial</b>. You do not pay a single rupee until you connect the storage to your phone and verify it works. We are a Chennai-based service helping locals avoid expensive iCloud fees.
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-xl overflow-hidden">
+                    <button @click="selected !== 2 ? selected = 2 : selected = null" class="w-full px-6 py-4 text-left font-semibold flex justify-between items-center text-gray-200 hover:text-white">
+                        <span>Can you see my photos?</span>
+                        <i class="ph-bold ph-caret-down transform transition-transform" :class="selected === 2 ? 'rotate-180' : ''"></i>
+                    </button>
+                    <div x-show="selected === 2" class="px-6 pb-4 text-sm text-gray-400 leading-relaxed">
+                        No. While we manage the server connection, we respect your privacy strictly. If you want 100% military-grade privacy, we can guide you to use "Cryptomator" (free app) which encrypts files before they even leave your phone.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="py-12 text-center text-gray-500 text-sm border-t border-white/5">
+        <p class="mb-2">Chennai Cloud Vault © 2025</p>
+        <p>Made with <i class="ph-fill ph-heart text-red-500"></i> in Tamil Nadu</p>
+    </footer>
+
+</body>
+</html>
