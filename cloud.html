@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,7 +10,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1001.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
     <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
     
     <style>
@@ -43,6 +43,12 @@
             background-color: #0a0a0a;
             border: 1px solid #222;
         }
+        
+        /* Utility to ensure clicks register */
+        .clickable {
+            cursor: pointer;
+            user-select: none;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden text-sm selection:bg-white selection:text-black">
@@ -58,7 +64,7 @@
                 <p class="text-[10px] text-neutral-500 mt-1 font-mono uppercase tracking-widest">Client-Side Encryption</p>
             </div>
 
-            <form onsubmit="event.preventDefault(); login();" class="space-y-4">
+            <form id="loginForm" class="space-y-4">
                 <div>
                     <label class="block text-[10px] font-bold text-neutral-500 mb-1 uppercase tracking-wider">Access Key</label>
                     <input type="text" id="ak" required class="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white focus:border-white outline-none transition placeholder-neutral-800 font-mono" placeholder="Key">
@@ -74,13 +80,13 @@
                     <input type="text" id="bucket" required class="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white focus:border-white outline-none transition placeholder-neutral-800 font-mono" placeholder="Bucket">
                 </div>
                 
-                <button type="submit" id="loginBtn" class="w-full bg-white hover:bg-neutral-200 text-black font-bold py-3.5 mt-2 rounded-lg transition flex justify-center items-center gap-2">
+                <button type="submit" id="loginBtn" class="w-full bg-white hover:bg-neutral-200 text-black font-bold py-3.5 mt-2 rounded-lg transition flex justify-center items-center gap-2 clickable">
                     Access Vault
                 </button>
             </form>
             
             <div class="mt-6 text-center">
-                <button onclick="document.getElementById('corsModal').classList.remove('hidden')" class="text-xs text-neutral-600 hover:text-white transition flex items-center justify-center gap-1 w-full">
+                <button id="helpBtn" class="text-xs text-neutral-600 hover:text-white transition flex items-center justify-center gap-1 w-full clickable">
                     <i class="ph-bold ph-question"></i> Connection Issues?
                 </button>
             </div>
@@ -103,10 +109,10 @@
             </div>
             
             <div class="flex items-center gap-2">
-                <button onclick="refresh()" class="w-10 h-10 rounded-lg bg-neutral-900 text-neutral-400 hover:bg-white hover:text-black transition flex items-center justify-center" title="Refresh">
+                <button id="refreshBtn" class="w-10 h-10 rounded-lg bg-neutral-900 text-neutral-400 hover:bg-white hover:text-black transition flex items-center justify-center clickable" title="Refresh">
                     <i class="ph-bold ph-arrow-clockwise text-lg"></i>
                 </button>
-                <button onclick="logout()" class="w-10 h-10 rounded-lg bg-neutral-900 text-neutral-400 hover:bg-white hover:text-black transition flex items-center justify-center" title="Logout">
+                <button id="logoutBtn" class="w-10 h-10 rounded-lg bg-neutral-900 text-neutral-400 hover:bg-white hover:text-black transition flex items-center justify-center clickable" title="Logout">
                     <i class="ph-bold ph-sign-out text-lg"></i>
                 </button>
             </div>
@@ -131,18 +137,19 @@
 
         <!-- Load More Button -->
         <div id="loadMoreBtn" class="hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-30">
-            <button onclick="loadNextPage()" class="glass-panel text-white px-6 py-3 rounded-full text-xs font-bold hover:bg-white hover:text-black transition flex items-center gap-2 shadow-xl">
+            <button id="loadMoreAction" class="glass-panel text-white px-6 py-3 rounded-full text-xs font-bold hover:bg-white hover:text-black transition flex items-center gap-2 shadow-xl clickable">
                 LOAD MORE
             </button>
         </div>
 
-        <!-- Upload FAB -->
-        <label class="fixed bottom-6 right-6 z-40 group cursor-pointer">
-            <div class="w-14 h-14 bg-white hover:bg-neutral-200 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95">
+        <!-- Upload FAB (Fixed Click Area) -->
+        <div class="fixed bottom-6 right-6 z-40 group cursor-pointer w-14 h-14">
+            <div class="w-full h-full bg-white hover:bg-neutral-200 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 absolute inset-0 pointer-events-none">
                 <i class="ph-bold ph-upload-simple text-2xl text-black"></i>
             </div>
-            <input type="file" multiple class="hidden" onchange="initUploadQueue(this)">
-        </label>
+            <!-- Input covers the entire button area -->
+            <input type="file" multiple id="fileInput" class="opacity-0 w-full h-full cursor-pointer relative z-10">
+        </div>
     </div>
 
     <!-- 3. VIEWER MODAL -->
@@ -152,7 +159,7 @@
                 <span id="viewerTitle" class="text-sm font-bold text-white truncate font-mono">filename.ext</span>
                 <span class="text-[10px] text-neutral-500 uppercase">Preview Mode</span>
             </div>
-            <button onclick="closeViewer()" class="w-10 h-10 rounded-full bg-neutral-800 hover:bg-white hover:text-black text-white transition flex items-center justify-center">
+            <button id="closeViewerBtn" class="w-10 h-10 rounded-full bg-neutral-800 hover:bg-white hover:text-black text-white transition flex items-center justify-center clickable">
                 <i class="ph-bold ph-x text-lg"></i>
             </button>
         </div>
@@ -160,10 +167,10 @@
         <div id="viewerContent" class="flex-1 relative w-full h-full bg-black flex items-center justify-center overflow-hidden p-4"></div>
 
         <div class="h-20 border-t border-neutral-800 bg-neutral-900 flex items-center justify-center gap-4 px-6 pb-safe z-20">
-            <button onclick="deleteCurrentFile()" class="w-12 h-12 flex items-center justify-center rounded-lg border border-neutral-700 text-neutral-400 hover:border-white hover:text-white transition">
+            <button id="viewerDeleteBtn" class="w-12 h-12 flex items-center justify-center rounded-lg border border-neutral-700 text-neutral-400 hover:border-white hover:text-white transition clickable">
                 <i class="ph-bold ph-trash text-xl"></i>
             </button>
-            <a id="viewerDownload" href="#" class="flex-1 max-w-xs bg-white hover:bg-neutral-200 text-black font-bold h-12 rounded-lg text-sm flex items-center justify-center gap-2 transition">
+            <a id="viewerDownload" href="#" class="flex-1 max-w-xs bg-white hover:bg-neutral-200 text-black font-bold h-12 rounded-lg text-sm flex items-center justify-center gap-2 transition clickable">
                 <i class="ph-bold ph-download-simple text-lg"></i> Download
             </a>
         </div>
@@ -178,8 +185,8 @@
             <h3 class="text-lg font-bold text-white mb-2">Delete File?</h3>
             <p class="text-xs text-neutral-400 mb-6 leading-relaxed">This cannot be undone.</p>
             <div class="flex gap-3">
-                <button onclick="closeDeleteModal()" class="flex-1 py-3 bg-transparent border border-neutral-700 hover:bg-neutral-800 text-white rounded-lg text-xs font-bold transition">Cancel</button>
-                <button id="confirmDeleteBtn" class="flex-1 py-3 bg-white hover:bg-neutral-200 text-black rounded-lg text-xs font-bold transition">Delete</button>
+                <button id="cancelDeleteBtn" class="flex-1 py-3 bg-transparent border border-neutral-700 hover:bg-neutral-800 text-white rounded-lg text-xs font-bold transition clickable">Cancel</button>
+                <button id="confirmDeleteBtn" class="flex-1 py-3 bg-white hover:bg-neutral-200 text-black rounded-lg text-xs font-bold transition clickable">Delete</button>
             </div>
         </div>
     </div>
@@ -189,7 +196,7 @@
         <div class="glass-panel w-full max-w-md p-6 rounded-2xl">
             <h3 class="text-lg font-bold text-white mb-2 font-mono uppercase">Connection Error</h3>
             <p class="text-sm text-neutral-400 mb-4 leading-relaxed">
-                The upload failed. This is usually caused by a poor internet connection or blocking settings on the Bucket.
+                The browser was blocked by the storage bucket.
                 <br><br>
                 <b>Admin Fix:</b> Add this CORS Rule to your S3 Bucket:
             </p>
@@ -207,12 +214,14 @@
 &lt;/CORSConfiguration&gt;
                 </code>
             </div>
-            <button onclick="document.getElementById('corsModal').classList.add('hidden')" class="w-full bg-white hover:bg-neutral-200 text-black py-3 rounded-lg text-sm font-bold transition">Close</button>
+            <button id="closeCorsBtn" class="w-full bg-white hover:bg-neutral-200 text-black py-3 rounded-lg text-sm font-bold transition clickable">Close</button>
         </div>
     </div>
 
     <script>
-        // --- CONFIGURATION ---
+        // --- SAFE INITIALIZATION ---
+        // We wait for DOM to be ready before attaching any listeners
+        
         const CONFIG = {
             endpoint: 'https://s3.tebi.io', 
             s3ForcePathStyle: true,
@@ -220,12 +229,11 @@
             httpOptions: { timeout: 0 } 
         };
 
-        // --- GLOBAL STATE ---
         let s3, bucketName, nextToken, currentViewerKey;
         let fileToDelete = null;
 
-        // Upload Queue State
-        const UPLOAD_CONCURRENCY = 2; // Strict limit to prevent drops
+        // Upload State
+        const UPLOAD_CONCURRENCY = 2;
         let uploadQueue = [];
         let activeUploads = 0;
         let totalUploadBytes = 0;
@@ -233,8 +241,37 @@
         let uploadStartTime = 0;
         let uploadRetryMap = new Map();
 
-        // --- AUTH & INIT ---
         document.addEventListener('DOMContentLoaded', () => {
+            // Check Dependencies
+            if (typeof AWS === 'undefined') {
+                alert("Critical Error: AWS SDK failed to load. Check your internet connection.");
+                return;
+            }
+
+            // Init PDF.js safely
+            if (typeof pdfjsLib !== 'undefined') {
+                try {
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                } catch(e) { console.warn("PDF Worker Init Warning", e); }
+            }
+
+            // Bind Static Buttons (Using addEventListener is safer than onclick HTML attribute)
+            document.getElementById('loginForm').addEventListener('submit', (e) => { e.preventDefault(); login(); });
+            document.getElementById('refreshBtn').addEventListener('click', refresh);
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+            document.getElementById('loadMoreAction').addEventListener('click', loadNextPage);
+            document.getElementById('fileInput').addEventListener('change', (e) => initUploadQueue(e.target));
+            
+            document.getElementById('closeViewerBtn').addEventListener('click', closeViewer);
+            document.getElementById('viewerDeleteBtn').addEventListener('click', deleteCurrentFile);
+            
+            document.getElementById('helpBtn').addEventListener('click', () => showModal('corsModal'));
+            document.getElementById('closeCorsBtn').addEventListener('click', () => hideModal('corsModal'));
+            
+            document.getElementById('cancelDeleteBtn').addEventListener('click', closeDeleteModal);
+            document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDelete);
+
+            // Auto Login Check
             if(localStorage.getItem('p_ak')) {
                 document.getElementById('ak').value = localStorage.getItem('p_ak');
                 document.getElementById('sk').value = localStorage.getItem('p_sk');
@@ -243,6 +280,7 @@
             }
         });
 
+        // --- AUTH ---
         function login() {
             const ak = document.getElementById('ak').value.trim();
             const sk = document.getElementById('sk').value.trim();
@@ -266,7 +304,7 @@
                 if(err) {
                     console.error("Login Error:", err);
                     if(err.code === 'NetworkingError' || err.statusCode === 0 || err.code === "Forbidden") {
-                        document.getElementById('corsModal').classList.remove('hidden');
+                        showModal('corsModal');
                     } else {
                         alert(`Login Failed: ${err.message}`);
                     }
@@ -300,12 +338,13 @@
             if(nextToken) params.ContinuationToken = nextToken;
 
             s3.listObjectsV2(params, (err, data) => {
+                // Remove loader
                 if(grid.innerHTML.includes('Syncing...')) grid.innerHTML = '';
 
                 if(err) {
-                    // Silent fail on network error during refresh to avoid spamming modal
                     console.error("Sync Error", err);
-                    grid.innerHTML = '<div class="col-span-full text-center text-neutral-600 mt-10">Sync Failed. Check Internet. <button onclick="refresh()" class="block mx-auto mt-2 text-white underline">Retry</button></div>';
+                    grid.innerHTML = '<div class="col-span-full text-center text-neutral-600 mt-10">Sync Failed. <br><button id="retrySync" class="text-white underline mt-2">Retry</button></div>';
+                    document.getElementById('retrySync').addEventListener('click', refresh);
                     return;
                 }
 
@@ -319,6 +358,7 @@
 
                 files.sort((a,b) => b.LastModified - a.LastModified);
 
+                // SAFELY CREATE ELEMENTS (Avoids innerHTML quote bugs)
                 files.forEach(file => {
                     const url = s3.getSignedUrl('getObject', { Bucket: bucketName, Key: file.Key, Expires: 3600 });
                     const ext = file.Key.split('.').pop().toLowerCase();
@@ -326,12 +366,18 @@
                     const type = getFileType(ext);
                     const displayName = file.Key.length > 20 ? file.Key.substring(0, 15) + '...' + ext : file.Key;
 
+                    // Container
                     const el = document.createElement('div');
                     el.className = 'bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden hover:border-white transition group flex flex-col h-40 relative';
 
-                    let thumbHtml = '';
+                    // Thumbnail Logic
+                    const thumbDiv = document.createElement('div');
+                    thumbDiv.className = 'flex-1 relative cursor-pointer overflow-hidden bg-black clickable';
+                    // Important: Bind click directly to avoid HTML string issues
+                    thumbDiv.addEventListener('click', () => openViewer(url, file.Key, type));
+
                     if(type === 'image') {
-                        thumbHtml = `<div class="w-full h-full bg-cover bg-center transition duration-500 group-hover:scale-105 opacity-80 group-hover:opacity-100" style="background-image: url('${url}');"></div>`;
+                        thumbDiv.innerHTML = `<div class="w-full h-full bg-cover bg-center transition duration-500 group-hover:scale-105 opacity-80 group-hover:opacity-100" style="background-image: url('${url}');"></div>`;
                     } else {
                         let iconClass = 'ph-file';
                         if(type === 'video') iconClass = 'ph-film-strip';
@@ -339,24 +385,224 @@
                         else if(type === 'pdf') iconClass = 'ph-file-pdf';
                         else if(type === 'code') iconClass = 'ph-code';
                         else if(type === 'archive') iconClass = 'ph-package';
-                        thumbHtml = `<div class="w-full h-full flex flex-col items-center justify-center bg-neutral-900 gap-2"><i class="ph-fill ${iconClass} text-3xl text-neutral-600 group-hover:text-white transition"></i><span class="text-[9px] font-bold text-neutral-500 uppercase border border-neutral-800 px-1 rounded bg-black">${ext}</span></div>`;
+                        thumbDiv.innerHTML = `<div class="w-full h-full flex flex-col items-center justify-center bg-neutral-900 gap-2"><i class="ph-fill ${iconClass} text-3xl text-neutral-600 group-hover:text-white transition"></i><span class="text-[9px] font-bold text-neutral-500 uppercase border border-neutral-800 px-1 rounded bg-black">${ext}</span></div>`;
                     }
 
-                    el.innerHTML = `
-                        <div class="flex-1 relative cursor-pointer overflow-hidden bg-black" onclick="openViewer('${url}', '${file.Key.replace(/'/g, "\\'")}', '${type}')">
-                            ${thumbHtml}
-                        </div>
-                        <div class="h-11 px-3 flex items-center justify-between bg-neutral-900 border-t border-neutral-800">
-                            <div class="flex-1 min-w-0 pr-2">
-                                <p class="text-[11px] font-medium text-neutral-300 truncate font-mono" title="${file.Key}">${displayName}</p>
-                                <p class="text-[9px] text-neutral-500 font-medium">${size}</p>
-                            </div>
-                            <button onclick="event.stopPropagation(); promptDelete('${file.Key.replace(/'/g, "\\'")}')" class="text-neutral-600 hover:text-white transition p-1.5">
-                                <i class="ph-bold ph-trash"></i>
-                            </button>
-                        </div>
-                    `;
+                    // Info Bar
+                    const infoBar = document.createElement('div');
+                    infoBar.className = 'h-11 px-3 flex items-center justify-between bg-neutral-900 border-t border-neutral-800';
+                    
+                    const textDiv = document.createElement('div');
+                    textDiv.className = 'flex-1 min-w-0 pr-2';
+                    textDiv.innerHTML = `<p class="text-[11px] font-medium text-neutral-300 truncate font-mono">${displayName}</p><p class="text-[9px] text-neutral-500 font-medium">${size}</p>`;
+
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'text-neutral-600 hover:text-white transition p-1.5 clickable';
+                    delBtn.innerHTML = '<i class="ph-bold ph-trash"></i>';
+                    delBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        promptDelete(file.Key);
+                    });
+
+                    infoBar.appendChild(textDiv);
+                    infoBar.appendChild(delBtn);
+
+                    el.appendChild(thumbDiv);
+                    el.appendChild(infoBar);
                     grid.appendChild(el);
                 });
 
-                if(data.IsTruncate
+                if(data.IsTruncated) {
+                    nextToken = data.NextContinuationToken;
+                    loadBtn.classList.remove('hidden');
+                } else {
+                    nextToken = null;
+                }
+            });
+        }
+
+        // --- UPLOAD ---
+        
+        function initUploadQueue(input) {
+            const files = Array.from(input.files);
+            if (files.length === 0) return;
+
+            files.forEach(f => {
+                uploadQueue.push(f);
+                totalUploadBytes += f.size;
+            });
+            
+            if(uploadProgressMap.size === 0) {
+                 uploadStartTime = Date.now();
+                 document.getElementById('progressBox').classList.remove('hidden');
+            }
+
+            processUploadQueue();
+            input.value = '';
+        }
+
+        function processUploadQueue() {
+            if (uploadQueue.length === 0 && activeUploads === 0) {
+                finishUploadSession();
+                return;
+            }
+
+            while (activeUploads < UPLOAD_CONCURRENCY && uploadQueue.length > 0) {
+                const file = uploadQueue.shift();
+                activeUploads++;
+                uploadSingleFile(file);
+            }
+            document.getElementById('queueStatus').innerText = `QUEUE: ${uploadQueue.length} WAITING | ${activeUploads} ACTIVE`;
+        }
+
+        function uploadSingleFile(file) {
+            const sanitizedKey = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+            const fileId = sanitizedKey + file.lastModified;
+
+            const params = { Bucket: bucketName, Key: sanitizedKey, Body: file, ContentType: file.type };
+            const upload = s3.upload(params);
+
+            upload.on('httpUploadProgress', (evt) => {
+                uploadProgressMap.set(fileId, evt.loaded);
+                updateGlobalProgress();
+            });
+
+            upload.send((err) => {
+                activeUploads--;
+                if (err) {
+                    console.error("Upload Fail:", err);
+                    let retries = uploadRetryMap.get(fileId) || 0;
+                    if (retries < 3) {
+                        uploadRetryMap.set(fileId, retries + 1);
+                        uploadQueue.unshift(file);
+                    } else if (err.statusCode === 0) {
+                         showModal('corsModal');
+                    }
+                } else {
+                    uploadProgressMap.set(fileId, file.size);
+                }
+                processUploadQueue();
+            });
+        }
+
+        function updateGlobalProgress() {
+            let currentLoaded = 0;
+            for (let bytes of uploadProgressMap.values()) currentLoaded += bytes;
+
+            const pct = totalUploadBytes > 0 ? Math.round((currentLoaded / totalUploadBytes) * 100) : 0;
+            document.getElementById('progressBar').style.width = pct + '%';
+            document.getElementById('progressText').innerText = `UPLOADING ${pct}%`;
+            
+            const timeElapsed = (Date.now() - uploadStartTime) / 1000;
+            if (timeElapsed > 0) {
+                const speed = (currentLoaded / 1024 / 1024 / timeElapsed).toFixed(1);
+                document.getElementById('progressSpeed').innerText = `${speed} MB/s`;
+            }
+        }
+
+        function finishUploadSession() {
+            const bar = document.getElementById('progressBar');
+            bar.style.width = '100%';
+            document.getElementById('progressText').innerText = "PROCESSING...";
+            setTimeout(() => {
+                document.getElementById('progressBox').classList.add('hidden');
+                bar.style.width = '0%';
+                uploadQueue = [];
+                activeUploads = 0;
+                totalUploadBytes = 0;
+                uploadProgressMap.clear();
+                uploadRetryMap.clear();
+                refresh();
+            }, 800);
+        }
+
+        // --- VIEWER ---
+        function openViewer(url, key, type) {
+            currentViewerKey = key;
+            document.getElementById('viewerTitle').innerText = key;
+            document.getElementById('viewerDownload').href = url;
+            
+            const container = document.getElementById('viewerContent');
+            container.innerHTML = '<div class="absolute inset-0 flex flex-col items-center justify-center z-0"><span class="loader"></span></div>';
+            
+            document.getElementById('viewer').classList.remove('hidden');
+
+            // Safe Render
+            try {
+                if(type === 'image') {
+                    const img = new Image();
+                    img.src = url;
+                    img.className = "relative z-10 max-w-full max-h-full object-contain hidden rounded-lg";
+                    img.onload = () => { container.innerHTML = ''; container.appendChild(img); img.classList.remove('hidden'); };
+                    img.onerror = () => { container.innerHTML = '<span class="text-neutral-500">Image Load Error</span>'; };
+                } else if (type === 'video') {
+                     container.innerHTML = `<video src="${url}" controls autoplay class="relative z-10 max-w-full max-h-full rounded-lg bg-black"></video>`;
+                } else {
+                    // Fallback for PDF/Audio/Code/etc
+                     container.innerHTML = `<div class="text-center bg-neutral-900 p-8 rounded-2xl border border-neutral-800"><i class="ph-duotone ph-file text-5xl text-neutral-600 mb-4"></i><p class="text-neutral-400 text-sm font-mono">PREVIEW NOT AVAILABLE</p></div>`;
+                }
+            } catch(e) {
+                console.error(e);
+                container.innerHTML = '<span class="text-neutral-500">Render Error</span>';
+            }
+        }
+
+        function closeViewer() {
+            document.getElementById('viewer').classList.add('hidden');
+            document.getElementById('viewerContent').innerHTML = '';
+        }
+
+        // --- DELETE ---
+        function promptDelete(key) {
+            fileToDelete = key;
+            showModal('deleteModal');
+        }
+
+        function confirmDelete() {
+            if(!fileToDelete) return;
+            const btn = document.getElementById('confirmDeleteBtn');
+            btn.innerText = "DELETING...";
+            
+            s3.deleteObject({ Bucket: bucketName, Key: fileToDelete }, (err) => {
+                btn.innerText = "Delete";
+                hideModal('deleteModal');
+                if(err) {
+                    if(err.statusCode === 0) showModal('corsModal');
+                    else alert("Error: " + err.message);
+                } else {
+                    if(currentViewerKey === fileToDelete) closeViewer();
+                    refresh();
+                }
+            });
+        }
+
+        function deleteCurrentFile() {
+            if(currentViewerKey) promptDelete(currentViewerKey);
+        }
+
+        function logout() {
+            if(confirm("Lock Vault?")) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        // --- UTILS ---
+        function showModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function hideModal(id) { document.getElementById(id).classList.add('hidden'); }
+        function getFileType(ext) {
+            if(['jpg','jpeg','png','webp','gif'].includes(ext)) return 'image';
+            if(['mp4','mov','webm'].includes(ext)) return 'video';
+            return 'other';
+        }
+        function formatSize(bytes) {
+            if(bytes === 0) return '0 B';
+            const k = 1024;
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + ['B', 'KB', 'MB', 'GB'][i];
+        }
+    </script>
+</body>
+</html>
+
+
