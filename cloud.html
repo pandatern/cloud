@@ -121,7 +121,7 @@
             <div class="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
                 <div id="progressBar" class="h-full bg-white transition-all duration-150 ease-out" style="width: 0%"></div>
             </div>
-            <div id="queueStatus" class="text-[9px] text-neutral-600 mt-1 font-mono uppercase text-right">Queue Active</div>
+            <div id="queueStatus" class="text-[9px] text-neutral-500 mt-1 font-mono uppercase text-right">Initializing...</div>
         </div>
 
         <!-- File Grid -->
@@ -187,12 +187,11 @@
     <!-- 5. CORS ERROR MODAL -->
     <div id="corsModal" class="fixed inset-0 z-[60] bg-black/90 hidden flex items-center justify-center p-6 backdrop-blur-sm">
         <div class="glass-panel w-full max-w-md p-6 rounded-2xl">
-            <h3 class="text-lg font-bold text-white mb-2 font-mono uppercase">CORS / Connection Error</h3>
+            <h3 class="text-lg font-bold text-white mb-2 font-mono uppercase">Connection Error</h3>
             <p class="text-sm text-neutral-400 mb-4 leading-relaxed">
-                The upload failed because the browser was blocked by the storage bucket.
+                The upload failed. This is usually caused by a poor internet connection or blocking settings on the Bucket.
                 <br><br>
-                1. Check your internet connection.<br>
-                2. If internet is fine, you <b>must</b> add this CORS Rule to your Bucket Settings:
+                <b>Admin Fix:</b> Add this CORS Rule to your S3 Bucket:
             </p>
             <div class="bg-black border border-neutral-800 rounded-lg p-4 mb-6 overflow-x-auto">
                 <code class="text-[10px] text-neutral-300 font-mono whitespace-pre select-all">
@@ -218,7 +217,7 @@
             endpoint: 'https://s3.tebi.io', 
             s3ForcePathStyle: true,
             signatureVersion: 'v4',
-            httpOptions: { timeout: 0 } // Disable timeout for large files
+            httpOptions: { timeout: 0 } 
         };
 
         // --- GLOBAL STATE ---
@@ -226,14 +225,13 @@
         let fileToDelete = null;
 
         // Upload Queue State
-        const UPLOAD_CONCURRENCY = 3; // Upload 3 files at a time to prevent breaking
+        const UPLOAD_CONCURRENCY = 2; // Strict limit to prevent drops
         let uploadQueue = [];
         let activeUploads = 0;
         let totalUploadBytes = 0;
-        let loadedUploadBytes = 0;
+        let uploadProgressMap = new Map();
         let uploadStartTime = 0;
-        let isUploading = false;
-        let uploadProgressMap = new Map(); // Tracks progress of each file by index
+        let uploadRetryMap = new Map();
 
         // --- AUTH & INIT ---
         document.addEventListener('DOMContentLoaded', () => {
@@ -305,8 +303,9 @@
                 if(grid.innerHTML.includes('Syncing...')) grid.innerHTML = '';
 
                 if(err) {
-                    if(err.statusCode === 0) document.getElementById('corsModal').classList.remove('hidden');
-                    else alert("Sync Error: " + err.message);
+                    // Silent fail on network error during refresh to avoid spamming modal
+                    console.error("Sync Error", err);
+                    grid.innerHTML = '<div class="col-span-full text-center text-neutral-600 mt-10">Sync Failed. Check Internet. <button onclick="refresh()" class="block mx-auto mt-2 text-white underline">Retry</button></div>';
                     return;
                 }
 
@@ -360,5 +359,4 @@
                     grid.appendChild(el);
                 });
 
-                if(data.IsTruncated) {
-                    nextTo
+                if(data.IsTruncate
