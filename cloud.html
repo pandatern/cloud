@@ -1,20 +1,22 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>PandaVault | Secure Storage</title>
-    <!-- CSS & Scripts -->
+    
+    <!-- External Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1001.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
-    <!-- Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+        /* STRICT MONOCHROME THEME */
         body { 
             background-color: #000000; 
             color: #ffffff; 
@@ -22,60 +24,69 @@
             -webkit-tap-highlight-color: transparent;
         }
 
+        /* Selection Color */
         ::selection { background: #ffffff; color: #000000; }
 
+        /* Scrollbar */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: #000000; }
         ::-webkit-scrollbar-thumb { background: #333333; border-radius: 2px; }
 
+        /* Loader Animation */
         .loader {
-            width: 24px; height: 24px;
-            border: 3px solid #333333;
+            width: 20px; height: 20px;
+            border: 2px solid #333333;
             border-top-color: #ffffff;
             border-radius: 50%;
             display: inline-block;
             animation: rotation 0.8s linear infinite;
         }
         @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Utility */
+        .glass-panel {
+            background-color: #111111;
+            border: 1px solid #222222;
+        }
     </style>
 </head>
-<body class="h-screen flex flex-col overflow-hidden text-sm">
+<body class="h-screen flex flex-col overflow-hidden text-sm selection:bg-white selection:text-black">
 
     <!-- 1. LOGIN SCREEN -->
     <div id="loginScreen" class="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black">
-        <div class="w-full max-w-sm border border-neutral-800 bg-neutral-900/50 p-8 rounded-2xl">
+        <div class="w-full max-w-sm glass-panel p-8 rounded-2xl shadow-2xl">
             <div class="flex flex-col items-center mb-8">
                 <div class="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4">
                     <i class="ph-fill ph-lock-key text-4xl text-black"></i>
                 </div>
                 <h1 class="text-xl font-bold text-white tracking-tight">PandaVault</h1>
-                <p class="text-xs text-neutral-500 mt-1 font-mono">CLIENT-SIDE ACCESS</p>
+                <p class="text-[10px] text-neutral-500 mt-1 font-mono uppercase tracking-widest">Client-Side Encryption</p>
             </div>
 
             <form onsubmit="event.preventDefault(); login();" class="space-y-4">
                 <div>
                     <label class="block text-[10px] font-bold text-neutral-500 mb-1 uppercase tracking-wider">Access Key</label>
-                    <input type="text" id="ak" required class="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white focus:border-white outline-none transition placeholder-neutral-700 font-mono" placeholder="Enter Key">
+                    <input type="text" id="ak" required class="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white focus:border-white outline-none transition placeholder-neutral-800 font-mono" placeholder="Key">
                 </div>
                 
                 <div>
                     <label class="block text-[10px] font-bold text-neutral-500 mb-1 uppercase tracking-wider">Secret Key</label>
-                    <input type="password" id="sk" required class="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white focus:border-white outline-none transition placeholder-neutral-700 font-mono" placeholder="Enter Secret">
+                    <input type="password" id="sk" required class="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white focus:border-white outline-none transition placeholder-neutral-800 font-mono" placeholder="Secret">
                 </div>
                 
                 <div>
                     <label class="block text-[10px] font-bold text-neutral-500 mb-1 uppercase tracking-wider">Bucket Name</label>
-                    <input type="text" id="bucket" required class="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white focus:border-white outline-none transition placeholder-neutral-700 font-mono" placeholder="bucket-name">
+                    <input type="text" id="bucket" required class="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white focus:border-white outline-none transition placeholder-neutral-800 font-mono" placeholder="Bucket">
                 </div>
                 
                 <button type="submit" id="loginBtn" class="w-full bg-white hover:bg-neutral-200 text-black font-bold py-3.5 mt-2 rounded-lg transition flex justify-center items-center gap-2">
-                    Unlock Vault
+                    Access Vault
                 </button>
             </form>
             
             <div class="mt-6 text-center">
-                <button onclick="document.getElementById('corsModal').classList.remove('hidden')" class="text-xs text-neutral-500 hover:text-white transition flex items-center justify-center gap-1 w-full">
-                    <i class="ph-bold ph-plugs"></i> Connection Help
+                <button onclick="document.getElementById('corsModal').classList.remove('hidden')" class="text-xs text-neutral-600 hover:text-white transition flex items-center justify-center gap-1 w-full">
+                    <i class="ph-bold ph-question"></i> Connection Issues?
                 </button>
             </div>
         </div>
@@ -92,66 +103,65 @@
                 </div>
                 <div class="flex flex-col">
                     <span class="font-bold text-sm text-white leading-tight">PandaVault</span>
-                    <span id="status" class="text-[10px] text-neutral-500 font-mono">Loading...</span>
+                    <span id="status" class="text-[10px] text-neutral-500 font-mono uppercase">Connecting...</span>
                 </div>
             </div>
             
             <div class="flex items-center gap-2">
-                <button onclick="refresh()" class="w-10 h-10 rounded-lg bg-neutral-900 text-neutral-400 hover:bg-white hover:text-black transition flex items-center justify-center">
+                <button onclick="refresh()" class="w-10 h-10 rounded-lg bg-neutral-900 text-neutral-400 hover:bg-white hover:text-black transition flex items-center justify-center" title="Refresh">
                     <i class="ph-bold ph-arrow-clockwise text-lg"></i>
                 </button>
-                <button onclick="logout()" class="w-10 h-10 rounded-lg bg-neutral-900 text-neutral-400 hover:bg-white hover:text-black transition flex items-center justify-center">
+                <button onclick="logout()" class="w-10 h-10 rounded-lg bg-neutral-900 text-neutral-400 hover:bg-white hover:text-black transition flex items-center justify-center" title="Logout">
                     <i class="ph-bold ph-sign-out text-lg"></i>
                 </button>
             </div>
         </header>
 
-        <!-- Progress Bar -->
+        <!-- Progress Bar (Fixed) -->
         <div id="progressBox" class="hidden bg-neutral-900 border-b border-neutral-800 px-4 py-3 shrink-0">
             <div class="flex justify-between text-xs font-mono text-white mb-1.5">
                 <span id="progressText">UPLOADING...</span>
                 <span id="progressSpeed" class="text-neutral-500">0 MB/s</span>
             </div>
             <div class="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
-                <div id="progressBar" class="h-full bg-white transition-all duration-200" style="width: 0%"></div>
+                <div id="progressBar" class="h-full bg-white transition-all duration-150 ease-out" style="width: 0%"></div>
             </div>
         </div>
 
-        <!-- Grid -->
+        <!-- File Grid -->
         <main id="grid" class="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 content-start pb-32">
             <!-- Files injected here -->
         </main>
 
-        <!-- Load More -->
+        <!-- Load More Button -->
         <div id="loadMoreBtn" class="hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-30">
-            <button onclick="loadNextPage()" class="bg-neutral-900 border border-neutral-700 text-white px-6 py-3 rounded-full text-xs font-bold hover:bg-white hover:text-black transition flex items-center gap-2 shadow-xl">
+            <button onclick="loadNextPage()" class="glass-panel text-white px-6 py-3 rounded-full text-xs font-bold hover:bg-white hover:text-black transition flex items-center gap-2 shadow-xl">
                 LOAD MORE
             </button>
         </div>
 
-        <!-- FAB -->
+        <!-- Upload FAB -->
         <label class="fixed bottom-6 right-6 z-40 group cursor-pointer">
             <div class="w-14 h-14 bg-white hover:bg-neutral-200 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95">
                 <i class="ph-bold ph-upload-simple text-2xl text-black"></i>
             </div>
-            <!-- Added multiple attribute for multi-file upload -->
             <input type="file" multiple class="hidden" onchange="handleUpload(this)">
         </label>
     </div>
 
     <!-- 3. VIEWER MODAL -->
     <div id="viewer" class="fixed inset-0 z-50 bg-black/95 hidden flex flex-col backdrop-blur-sm transition-opacity">
-        <div class="h-16 flex items-center justify-between px-4 border-b border-neutral-800 bg-neutral-900/50 z-20">
+        <div class="h-16 flex items-center justify-between px-4 border-b border-neutral-800 bg-neutral-900/90 z-20">
             <div class="flex flex-col min-w-0 pr-4">
                 <span id="viewerTitle" class="text-sm font-bold text-white truncate font-mono">filename.ext</span>
-                <span class="text-[10px] text-neutral-500 uppercase">Preview</span>
+                <span class="text-[10px] text-neutral-500 uppercase">Preview Mode</span>
             </div>
             <button onclick="closeViewer()" class="w-10 h-10 rounded-full bg-neutral-800 hover:bg-white hover:text-black text-white transition flex items-center justify-center">
                 <i class="ph-bold ph-x text-lg"></i>
             </button>
         </div>
 
-        <div id="viewerContent" class="flex-1 relative w-full h-full bg-black flex items-center justify-center overflow-hidden"></div>
+        <div id="viewerContent" class="flex-1 relative w-full h-full bg-black flex items-center justify-center overflow-hidden p-4"></div>
 
         <div class="h-20 border-t border-neutral-800 bg-neutral-900 flex items-center justify-center gap-4 px-6 pb-safe z-20">
             <button onclick="deleteCurrentFile()" class="w-12 h-12 flex items-center justify-center rounded-lg border border-neutral-700 text-neutral-400 hover:border-white hover:text-white transition">
@@ -163,14 +173,14 @@
         </div>
     </div>
 
-    <!-- 4. DELETE CONFIRM MODAL -->
+    <!-- 4. DELETE CONFIRMATION -->
     <div id="deleteModal" class="fixed inset-0 z-[60] bg-black/80 hidden flex items-center justify-center p-6 backdrop-blur-sm">
-        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-xs p-6 rounded-2xl shadow-2xl">
+        <div class="glass-panel w-full max-w-xs p-6 rounded-2xl shadow-2xl">
             <div class="w-12 h-12 bg-neutral-800 rounded-full flex items-center justify-center mb-4 text-white">
                 <i class="ph-fill ph-trash text-2xl"></i>
             </div>
             <h3 class="text-lg font-bold text-white mb-2">Delete File?</h3>
-            <p class="text-xs text-neutral-400 mb-6 leading-relaxed">This action cannot be undone.</p>
+            <p class="text-xs text-neutral-400 mb-6 leading-relaxed">This cannot be undone.</p>
             <div class="flex gap-3">
                 <button onclick="closeDeleteModal()" class="flex-1 py-3 bg-transparent border border-neutral-700 hover:bg-neutral-800 text-white rounded-lg text-xs font-bold transition">Cancel</button>
                 <button id="confirmDeleteBtn" class="flex-1 py-3 bg-white hover:bg-neutral-200 text-black rounded-lg text-xs font-bold transition">Delete</button>
@@ -178,12 +188,12 @@
         </div>
     </div>
 
-    <!-- 5. CORS HELP MODAL -->
+    <!-- 5. CORS ERROR MODAL -->
     <div id="corsModal" class="fixed inset-0 z-[60] bg-black/90 hidden flex items-center justify-center p-6 backdrop-blur-sm">
-        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-md p-6 rounded-2xl">
+        <div class="glass-panel w-full max-w-md p-6 rounded-2xl">
             <h3 class="text-lg font-bold text-white mb-2 font-mono uppercase">Connection Error</h3>
             <p class="text-sm text-neutral-400 mb-4 leading-relaxed">
-                If files don't load or upload, Tebi/S3 is blocking the browser. You must add this CORS rule to your bucket settings:
+                The storage bucket is blocking the connection. You must add this CORS configuration to your bucket settings:
             </p>
             <div class="bg-black border border-neutral-800 rounded-lg p-4 mb-6 overflow-x-auto">
                 <code class="text-[10px] text-neutral-300 font-mono whitespace-pre select-all">
@@ -204,6 +214,7 @@
     </div>
 
     <script>
+        // CONFIGURATION
         const CONFIG = {
             endpoint: 'https://s3.tebi.io', 
             s3ForcePathStyle: true,
@@ -233,23 +244,26 @@
 
             const btn = document.getElementById('loginBtn');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<span class="loader border-black"></span>';
+            btn.innerHTML = '<span class="loader"></span>';
             btn.disabled = true;
 
+            // Initialize S3
+            // Important: We default to us-east-1 for Tebi/generic S3 to avoid region errors
             AWS.config.update({ accessKeyId: ak, secretAccessKey: sk, region: 'us-east-1', ...CONFIG });
             s3 = new AWS.S3();
             bucketName = b;
 
+            // Test Connection
             s3.listObjectsV2({ Bucket: bucketName, MaxKeys: 1 }, (err) => {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
 
                 if(err) {
-                    console.error(err);
-                    if(err.code === 'NetworkingError' || err.statusCode === 0) {
+                    console.error("Login Error:", err);
+                    if(err.code === 'NetworkingError' || err.statusCode === 0 || err.code === "Forbidden") {
                         document.getElementById('corsModal').classList.remove('hidden');
                     } else {
-                        alert(`Connection Failed: ${err.message}`);
+                        alert(`Login Failed: ${err.message}`);
                     }
                 } else {
                     localStorage.setItem('p_ak', ak);
@@ -275,25 +289,31 @@
             loadBtn.classList.add('hidden');
 
             if(grid.children.length === 0) {
-                grid.innerHTML = '<div class="col-span-full flex flex-col items-center justify-center py-20 gap-3"><span class="loader"></span><span class="text-xs text-neutral-500 font-mono uppercase">Syncing Vault...</span></div>';
+                grid.innerHTML = '<div class="col-span-full flex flex-col items-center justify-center py-20 gap-3"><span class="loader"></span><span class="text-xs text-neutral-500 font-mono uppercase">Syncing...</span></div>';
             }
 
             const params = { Bucket: bucketName, MaxKeys: 50 };
             if(nextToken) params.ContinuationToken = nextToken;
 
             s3.listObjectsV2(params, (err, data) => {
-                if(grid.innerHTML.includes('Syncing Vault')) grid.innerHTML = '';
+                // Clear loading state
+                if(grid.innerHTML.includes('Syncing...')) grid.innerHTML = '';
 
-                if(err) return alert("Error fetching files: " + err.message);
-
-                const files = data.Contents || [];
-                document.getElementById('status').innerText = `${files.length + grid.children.length} Files`;
-
-                if(files.length === 0 && grid.children.length === 0) {
-                    grid.innerHTML = `<div class="col-span-full flex flex-col items-center justify-center text-neutral-600 mt-20"><i class="ph-duotone ph-folder-open text-4xl mb-4"></i><p class="text-sm font-medium">Vault Empty</p></div>`;
+                if(err) {
+                    if(err.statusCode === 0) document.getElementById('corsModal').classList.remove('hidden');
+                    else alert("Sync Error: " + err.message);
                     return;
                 }
 
+                const files = data.Contents || [];
+                document.getElementById('status').innerText = `${(files.length + grid.children.length)} OBJECTS`;
+
+                if(files.length === 0 && grid.children.length === 0) {
+                    grid.innerHTML = `<div class="col-span-full flex flex-col items-center justify-center text-neutral-700 mt-20"><i class="ph-duotone ph-folder-open text-4xl mb-4"></i><p class="text-sm font-medium">VAULT EMPTY</p></div>`;
+                    return;
+                }
+
+                // Sort by newest first
                 files.sort((a,b) => b.LastModified - a.LastModified);
 
                 files.forEach(file => {
@@ -301,6 +321,9 @@
                     const ext = file.Key.split('.').pop().toLowerCase();
                     const size = formatSize(file.Size);
                     const type = getFileType(ext);
+
+                    // Sanitized Name for Display
+                    const displayName = file.Key.length > 20 ? file.Key.substring(0, 15) + '...' + ext : file.Key;
 
                     const el = document.createElement('div');
                     el.className = 'bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden hover:border-white transition group flex flex-col h-40 relative';
@@ -320,15 +343,15 @@
                     }
 
                     el.innerHTML = `
-                        <div class="flex-1 relative cursor-pointer overflow-hidden bg-black" onclick="openViewer('${url}', '${file.Key}', '${type}')">
+                        <div class="flex-1 relative cursor-pointer overflow-hidden bg-black" onclick="openViewer('${url}', '${file.Key.replace(/'/g, "\\'")}', '${type}')">
                             ${thumbHtml}
                         </div>
                         <div class="h-11 px-3 flex items-center justify-between bg-neutral-900 border-t border-neutral-800">
                             <div class="flex-1 min-w-0 pr-2">
-                                <p class="text-[11px] font-medium text-neutral-300 truncate font-mono" title="${file.Key}">${file.Key}</p>
+                                <p class="text-[11px] font-medium text-neutral-300 truncate font-mono" title="${file.Key}">${displayName}</p>
                                 <p class="text-[9px] text-neutral-500 font-medium">${size}</p>
                             </div>
-                            <button onclick="event.stopPropagation(); promptDelete('${file.Key}')" class="text-neutral-600 hover:text-white transition p-1.5">
+                            <button onclick="event.stopPropagation(); promptDelete('${file.Key.replace(/'/g, "\\'")}')" class="text-neutral-600 hover:text-white transition p-1.5">
                                 <i class="ph-bold ph-trash"></i>
                             </button>
                         </div>
@@ -345,7 +368,7 @@
             });
         }
 
-        // --- FIXED UPLOAD LOGIC ---
+        // --- ROBUST AGGREGATE UPLOAD ---
         function handleUpload(input) {
             const files = Array.from(input.files);
             if (files.length === 0) return;
@@ -357,12 +380,206 @@
 
             box.classList.remove('hidden');
             
-            // 1. Calculate Total Batch Size for smooth aggregate progress
+            // 1. Calculate Total Batch Size
             const totalBytes = files.reduce((acc, file) => acc + file.size, 0);
-            const fileProgress = new Array(files.length).fill(0); // Store progress of each file
+            const fileProgress = new Array(files.length).fill(0); 
             
             let completedCount = 0;
             const startTime = Date.now();
+            let hasErrors = false;
 
             files.forEach((file, index) => {
-                const params = { Bucket: bucketName, Key: file.name, Body: file, Conten
+                // Sanitize file name to prevent key errors
+                const sanitizedKey = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+                
+                const params = { Bucket: bucketName, Key: sanitizedKey, Body: file, ContentType: file.type };
+                
+                s3.upload(params)
+                .on('httpUploadProgress', (evt) => {
+                    fileProgress[index] = evt.loaded;
+                    const totalLoaded = fileProgress.reduce((a, b) => a + b, 0);
+                    
+                    // Math for Aggregate Percentage
+                    const pct = totalBytes > 0 ? Math.round((totalLoaded / totalBytes) * 100) : 100;
+                    bar.style.width = pct + '%';
+                    
+                    // Speed Calculation
+                    const timeElapsed = (Date.now() - startTime) / 1000;
+                    if(timeElapsed > 0) {
+                        const mbLoaded = totalLoaded / 1024 / 1024;
+                        const speed = (mbLoaded / timeElapsed).toFixed(1);
+                        spd.innerText = `${speed} MB/s`;
+                    }
+                    txt.innerText = `UPLOADING ${pct}%`;
+                })
+                .send((err) => {
+                    completedCount++;
+                    if(err) {
+                        console.error("Upload Error:", err);
+                        hasErrors = true;
+                    }
+                    
+                    if(completedCount === files.length) {
+                        // Batch Done
+                        setTimeout(() => {
+                            box.classList.add('hidden');
+                            bar.style.width = '0%';
+                            refresh();
+                            if(hasErrors) alert("Some files failed to upload. Check CORS settings.");
+                        }, 500);
+                    }
+                });
+            });
+            input.value = '';
+        }
+
+        // --- VIEWER LOGIC ---
+        function openViewer(url, key, type) {
+            currentViewerKey = key;
+            const container = document.getElementById('viewerContent');
+            const title = document.getElementById('viewerTitle');
+            const dlBtn = document.getElementById('viewerDownload');
+            
+            title.innerText = key;
+            dlBtn.href = url;
+            container.innerHTML = ''; 
+
+            // Temporary Loader
+            const loaderDiv = document.createElement('div');
+            loaderDiv.id = 'tempLoader';
+            loaderDiv.className = 'absolute inset-0 flex flex-col items-center justify-center z-0';
+            loaderDiv.innerHTML = '<span class="loader"></span><span class="text-xs text-neutral-500 font-mono mt-3 animate-pulse">DOWNLOADING...</span>';
+            container.appendChild(loaderDiv);
+
+            document.getElementById('viewer').classList.remove('hidden');
+
+            try {
+                if(type === 'image') {
+                    const img = new Image();
+                    img.crossOrigin = "anonymous"; // Try CORS immediately
+                    img.src = url;
+                    img.className = "relative z-10 max-w-full max-h-full object-contain hidden rounded-lg shadow-2xl"; 
+                    img.onload = () => { document.getElementById('tempLoader')?.remove(); img.classList.remove('hidden'); };
+                    img.onerror = () => { document.getElementById('tempLoader').innerHTML = '<span class="text-neutral-500">Image Load Error (CORS?)</span>'; };
+                    container.appendChild(img);
+                } 
+                else if (type === 'video') {
+                    const vid = document.createElement('video');
+                    vid.src = url;
+                    vid.controls = true;
+                    vid.autoplay = true;
+                    vid.className = "relative z-10 max-w-full max-h-full rounded-lg bg-black hidden";
+                    vid.oncanplay = () => { document.getElementById('tempLoader')?.remove(); vid.classList.remove('hidden'); };
+                    vid.onerror = () => { document.getElementById('tempLoader').innerHTML = '<span class="text-neutral-500">Video Load Error</span>'; };
+                    container.appendChild(vid);
+                } 
+                else if (type === 'audio') {
+                    document.getElementById('tempLoader')?.remove();
+                    container.innerHTML = `<div class="bg-neutral-900 p-8 rounded-2xl flex flex-col items-center border border-neutral-800"><div class="w-20 h-20 bg-neutral-800 rounded-full flex items-center justify-center mb-6"><i class="ph-fill ph-music-notes text-4xl text-white"></i></div><audio controls autoplay src="${url}" class="w-64"></audio></div>`;
+                } 
+                else if (type === 'pdf') {
+                    const canvas = document.createElement('canvas');
+                    canvas.className = 'relative z-10 max-w-full max-h-full rounded-lg bg-white hidden';
+                    container.appendChild(canvas);
+                    
+                    pdfjsLib.getDocument(url).promise.then(pdf => {
+                        pdf.getPage(1).then(page => {
+                            document.getElementById('tempLoader')?.remove();
+                            canvas.classList.remove('hidden');
+                            const ctx = canvas.getContext('2d');
+                            const scale = Math.min(container.clientWidth / page.getViewport({scale:1}).width, 1.5);
+                            const viewport = page.getViewport({scale: scale});
+                            canvas.height = viewport.height;
+                            canvas.width = viewport.width;
+                            page.render({canvasContext: ctx, viewport: viewport});
+                        });
+                    }).catch(e => {
+                        document.getElementById('tempLoader').innerHTML = '<span class="text-neutral-500">PDF Preview Error (CORS)</span>';
+                    });
+                } 
+                else if (type === 'code') {
+                    fetch(url).then(r => r.text()).then(txt => {
+                        document.getElementById('tempLoader')?.remove();
+                        container.innerHTML = `<div class="w-full h-full bg-neutral-900 border border-neutral-800 p-6 overflow-auto rounded-lg text-left"><pre class="text-xs font-mono text-neutral-300 whitespace-pre-wrap">${txt.replace(/</g, '&lt;')}</pre></div>`;
+                    }).catch(e => {
+                        document.getElementById('tempLoader').innerHTML = '<span class="text-neutral-500">Text Preview Error</span>';
+                    });
+                } 
+                else {
+                    document.getElementById('tempLoader')?.remove();
+                    container.innerHTML = `<div class="text-center bg-neutral-900 p-8 rounded-2xl border border-neutral-800"><i class="ph-duotone ph-file text-5xl text-neutral-600 mb-4"></i><p class="text-neutral-400 text-sm font-mono">NO PREVIEW</p></div>`;
+                }
+            } catch(e) {
+                console.error("Viewer Error", e);
+                document.getElementById('tempLoader').innerHTML = '<span class="text-neutral-500">Render Error</span>';
+            }
+        }
+
+        function closeViewer() {
+            document.getElementById('viewer').classList.add('hidden');
+            document.getElementById('viewerContent').innerHTML = ''; 
+        }
+
+        // --- DELETE ---
+        function promptDelete(key) {
+            fileToDelete = key;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+            fileToDelete = null;
+        }
+
+        document.getElementById('confirmDeleteBtn').onclick = function() {
+            if(!fileToDelete) return;
+            const btn = this;
+            const originalText = btn.innerText;
+            btn.innerText = "DELETING...";
+            
+            s3.deleteObject({ Bucket: bucketName, Key: fileToDelete }, (err) => {
+                btn.innerText = originalText;
+                closeDeleteModal();
+                if(err) {
+                    if(err.statusCode === 0) document.getElementById('corsModal').classList.remove('hidden');
+                    else alert("Error: " + err.message);
+                } else {
+                    if(currentViewerKey === fileToDelete) closeViewer();
+                    refresh();
+                }
+            });
+        };
+
+        function deleteCurrentFile() {
+            promptDelete(currentViewerKey);
+        }
+
+        function logout() {
+            if(confirm("Lock Vault & Exit?")) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        function getFileType(ext) {
+            if(['jpg','jpeg','png','webp','gif','svg','heic'].includes(ext)) return 'image';
+            if(['mp4','mov','webm','mkv'].includes(ext)) return 'video';
+            if(['mp3','wav','m4a','ogg'].includes(ext)) return 'audio';
+            if(['pdf'].includes(ext)) return 'pdf';
+            if(['html','css','js','json','xml','txt','py','md','nim','ex','exs'].includes(ext)) return 'code';
+            if(['zip','rar','7z'].includes(ext)) return 'archive';
+            return 'other';
+        }
+
+        function formatSize(bytes) {
+            if(bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>
+
+
