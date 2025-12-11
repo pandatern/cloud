@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Panda Cloud</title>
+    <title>PandaVault | Secure Storage</title>
     <!-- CSS & Scripts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1001.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
-    <!-- Icons (Version Pinned for Stability) -->
+    <!-- Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
     
     <style>
-        /* PANDA MONOCHROME THEME */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
         body { 
@@ -23,15 +22,12 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* Pure Black/White Selection */
         ::selection { background: #ffffff; color: #000000; }
 
-        /* Minimal Scrollbar */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: #000000; }
         ::-webkit-scrollbar-thumb { background: #333333; border-radius: 2px; }
 
-        /* Robust Loader */
         .loader {
             width: 24px; height: 24px;
             border: 3px solid #333333;
@@ -50,10 +46,10 @@
         <div class="w-full max-w-sm border border-neutral-800 bg-neutral-900/50 p-8 rounded-2xl">
             <div class="flex flex-col items-center mb-8">
                 <div class="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4">
-                    <i class="ph-fill ph-panda text-4xl text-black"></i>
+                    <i class="ph-fill ph-lock-key text-4xl text-black"></i>
                 </div>
-                <h1 class="text-xl font-bold text-white tracking-tight">Panda Cloud</h1>
-                <p class="text-xs text-neutral-500 mt-1 font-mono">SECURE STORAGE</p>
+                <h1 class="text-xl font-bold text-white tracking-tight">PandaVault</h1>
+                <p class="text-xs text-neutral-500 mt-1 font-mono">CLIENT-SIDE ACCESS</p>
             </div>
 
             <form onsubmit="event.preventDefault(); login();" class="space-y-4">
@@ -73,13 +69,13 @@
                 </div>
                 
                 <button type="submit" id="loginBtn" class="w-full bg-white hover:bg-neutral-200 text-black font-bold py-3.5 mt-2 rounded-lg transition flex justify-center items-center gap-2">
-                    Open Vault
+                    Unlock Vault
                 </button>
             </form>
             
             <div class="mt-6 text-center">
                 <button onclick="document.getElementById('corsModal').classList.remove('hidden')" class="text-xs text-neutral-500 hover:text-white transition flex items-center justify-center gap-1 w-full">
-                    Connection Help
+                    <i class="ph-bold ph-plugs"></i> Connection Help
                 </button>
             </div>
         </div>
@@ -91,29 +87,11 @@
         <!-- Header -->
         <header class="h-16 border-b border-neutral-800 bg-black/90 backdrop-blur-md flex items-center justify-between px-4 sticky top-0 z-30 shrink-0">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-                    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" role="img" aria-label="Panda logo">
-                        <!-- Minimalist Panda Face -->
-                        <!-- Ears -->
-                        <circle cx="25" cy="30" r="15" fill="#000"/>
-                        <circle cx="75" cy="30" r="15" fill="#000"/>
-                        <!-- Head -->
-                        <circle cx="50" cy="50" r="30" fill="#fff"/>
-                        <!-- Eyes -->
-                        <ellipse cx="38" cy="45" rx="8" ry="12" fill="#000"/>
-                        <ellipse cx="62" cy="45" rx="8" ry="12" fill="#000"/>
-                        <!-- Eye highlights -->
-                        <circle cx="40" cy="42" r="3" fill="#fff"/>
-                        <circle cx="64" cy="42" r="3" fill="#fff"/>
-                        <!-- Nose -->
-                        <ellipse cx="50" cy="58" rx="6" ry="5" fill="#000"/>
-                        <!-- Mouth -->
-                        <path d="M 50 58 Q 45 63 40 60" stroke="#000" stroke-width="2" fill="none" stroke-linecap="round"/>
-                        <path d="M 50 58 Q 55 63 60 60" stroke="#000" stroke-width="2" fill="none" stroke-linecap="round"/>
-                    </svg>
+                <div class="w-9 h-9 bg-white rounded-lg flex items-center justify-center">
+                    <i class="ph-fill ph-hard-drives text-black text-xl"></i>
                 </div>
                 <div class="flex flex-col">
-                    <span class="font-bold text-sm text-white leading-tight">Panda Cloud</span>
+                    <span class="font-bold text-sm text-white leading-tight">PandaVault</span>
                     <span id="status" class="text-[10px] text-neutral-500 font-mono">Loading...</span>
                 </div>
             </div>
@@ -134,7 +112,7 @@
                 <span id="progressText">UPLOADING...</span>
                 <span id="progressSpeed" class="text-neutral-500">0 MB/s</span>
             </div>
-            <div class="h-1 w-full bg-neutral-800">
+            <div class="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
                 <div id="progressBar" class="h-full bg-white transition-all duration-200" style="width: 0%"></div>
             </div>
         </div>
@@ -154,31 +132,27 @@
         <!-- FAB -->
         <label class="fixed bottom-6 right-6 z-40 group cursor-pointer">
             <div class="w-14 h-14 bg-white hover:bg-neutral-200 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95">
-                <i class="ph-bold ph-plus text-2xl text-black"></i>
+                <i class="ph-bold ph-upload-simple text-2xl text-black"></i>
             </div>
+            <!-- Added multiple attribute for multi-file upload -->
             <input type="file" multiple class="hidden" onchange="handleUpload(this)">
         </label>
     </div>
 
     <!-- 3. VIEWER MODAL -->
     <div id="viewer" class="fixed inset-0 z-50 bg-black/95 hidden flex flex-col backdrop-blur-sm transition-opacity">
-        <!-- Toolbar -->
         <div class="h-16 flex items-center justify-between px-4 border-b border-neutral-800 bg-neutral-900/50 z-20">
             <div class="flex flex-col min-w-0 pr-4">
                 <span id="viewerTitle" class="text-sm font-bold text-white truncate font-mono">filename.ext</span>
-                <span class="text-[10px] text-neutral-500 uppercase">Preview Mode</span>
+                <span class="text-[10px] text-neutral-500 uppercase">Preview</span>
             </div>
             <button onclick="closeViewer()" class="w-10 h-10 rounded-full bg-neutral-800 hover:bg-white hover:text-black text-white transition flex items-center justify-center">
                 <i class="ph-bold ph-x text-lg"></i>
             </button>
         </div>
 
-        <!-- Content -->
-        <div id="viewerContent" class="flex-1 relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
-            <!-- Content Injected Here -->
-        </div>
+        <div id="viewerContent" class="flex-1 relative w-full h-full bg-black flex items-center justify-center overflow-hidden"></div>
 
-        <!-- Footer -->
         <div class="h-20 border-t border-neutral-800 bg-neutral-900 flex items-center justify-center gap-4 px-6 pb-safe z-20">
             <button onclick="deleteCurrentFile()" class="w-12 h-12 flex items-center justify-center rounded-lg border border-neutral-700 text-neutral-400 hover:border-white hover:text-white transition">
                 <i class="ph-bold ph-trash text-xl"></i>
@@ -209,7 +183,7 @@
         <div class="bg-neutral-900 border border-neutral-800 w-full max-w-md p-6 rounded-2xl">
             <h3 class="text-lg font-bold text-white mb-2 font-mono uppercase">Connection Error</h3>
             <p class="text-sm text-neutral-400 mb-4 leading-relaxed">
-                If files don't load, Tebi is blocking the browser. Add this CORS rule to your bucket:
+                If files don't load or upload, Tebi/S3 is blocking the browser. You must add this CORS rule to your bucket settings:
             </p>
             <div class="bg-black border border-neutral-800 rounded-lg p-4 mb-6 overflow-x-auto">
                 <code class="text-[10px] text-neutral-300 font-mono whitespace-pre select-all">
@@ -231,16 +205,16 @@
 
     <script>
         const CONFIG = {
-            endpoint: 'https://s3.tebi.io',
-            region: 'us-east-1',
+            endpoint: 'https://s3.tebi.io', 
             s3ForcePathStyle: true,
             signatureVersion: 'v4',
-            httpOptions: { timeout: 10000 }
+            httpOptions: { timeout: 0 }
         };
 
         let s3, bucketName, nextToken, currentViewerKey;
         let fileToDelete = null;
 
+        // --- AUTH & INIT ---
         document.addEventListener('DOMContentLoaded', () => {
             if(localStorage.getItem('p_ak')) {
                 document.getElementById('ak').value = localStorage.getItem('p_ak');
@@ -262,7 +236,7 @@
             btn.innerHTML = '<span class="loader border-black"></span>';
             btn.disabled = true;
 
-            AWS.config.update({ accessKeyId: ak, secretAccessKey: sk, ...CONFIG });
+            AWS.config.update({ accessKeyId: ak, secretAccessKey: sk, region: 'us-east-1', ...CONFIG });
             s3 = new AWS.S3();
             bucketName = b;
 
@@ -272,8 +246,11 @@
 
                 if(err) {
                     console.error(err);
-                    if(err.code === 'NetworkingError') document.getElementById('corsModal').classList.remove('hidden');
-                    else alert(`Connection Failed: ${err.message}`);
+                    if(err.code === 'NetworkingError' || err.statusCode === 0) {
+                        document.getElementById('corsModal').classList.remove('hidden');
+                    } else {
+                        alert(`Connection Failed: ${err.message}`);
+                    }
                 } else {
                     localStorage.setItem('p_ak', ak);
                     localStorage.setItem('p_sk', sk);
@@ -285,6 +262,7 @@
             });
         }
 
+        // --- FILE HANDLING ---
         function refresh() {
             document.getElementById('grid').innerHTML = '';
             nextToken = null;
@@ -297,16 +275,16 @@
             loadBtn.classList.add('hidden');
 
             if(grid.children.length === 0) {
-                grid.innerHTML = '<div class="col-span-full flex flex-col items-center justify-center py-20 gap-3"><span class="loader"></span><span class="text-xs text-neutral-500 font-mono uppercase">Fetching Vault...</span></div>';
+                grid.innerHTML = '<div class="col-span-full flex flex-col items-center justify-center py-20 gap-3"><span class="loader"></span><span class="text-xs text-neutral-500 font-mono uppercase">Syncing Vault...</span></div>';
             }
 
             const params = { Bucket: bucketName, MaxKeys: 50 };
             if(nextToken) params.ContinuationToken = nextToken;
 
             s3.listObjectsV2(params, (err, data) => {
-                if(grid.innerHTML.includes('Fetching Vault')) grid.innerHTML = '';
+                if(grid.innerHTML.includes('Syncing Vault')) grid.innerHTML = '';
 
-                if(err) return alert("Error: " + err.message);
+                if(err) return alert("Error fetching files: " + err.message);
 
                 const files = data.Contents || [];
                 document.getElementById('status').innerText = `${files.length + grid.children.length} Files`;
@@ -329,18 +307,16 @@
 
                     let thumbHtml = '';
                     if(type === 'image') {
-                        // Using a div background image for grid to avoid broken image icons initially
-                        thumbHtml = `<div class="w-full h-full bg-cover bg-center transition duration-500 group-hover:scale-105" style="background-image: url('${url}'); opacity: 0.8;"></div>`;
+                        thumbHtml = `<div class="w-full h-full bg-cover bg-center transition duration-500 group-hover:scale-105 opacity-80 group-hover:opacity-100" style="background-image: url('${url}');"></div>`;
                     } else {
                         let iconClass = 'ph-file';
-                        
                         if(type === 'video') iconClass = 'ph-film-strip';
                         else if(type === 'audio') iconClass = 'ph-speaker-high';
                         else if(type === 'pdf') iconClass = 'ph-file-pdf';
                         else if(type === 'code') iconClass = 'ph-code';
                         else if(type === 'archive') iconClass = 'ph-package';
                         
-                        thumbHtml = `<div class="w-full h-full flex flex-col items-center justify-center bg-neutral-900 gap-2"><i class="ph-fill ${iconClass} text-3xl text-neutral-600 group-hover:text-white transition"></i><span class="text-[9px] font-bold text-neutral-600 uppercase border border-neutral-800 px-1 rounded">${ext}</span></div>`;
+                        thumbHtml = `<div class="w-full h-full flex flex-col items-center justify-center bg-neutral-900 gap-2"><i class="ph-fill ${iconClass} text-3xl text-neutral-600 group-hover:text-white transition"></i><span class="text-[9px] font-bold text-neutral-500 uppercase border border-neutral-800 px-1 rounded bg-black">${ext}</span></div>`;
                     }
 
                     el.innerHTML = `
@@ -369,9 +345,10 @@
             });
         }
 
+        // --- FIXED UPLOAD LOGIC ---
         function handleUpload(input) {
             const files = Array.from(input.files);
-            if(files.length === 0) return;
+            if (files.length === 0) return;
 
             const box = document.getElementById('progressBox');
             const bar = document.getElementById('progressBar');
@@ -379,195 +356,13 @@
             const spd = document.getElementById('progressSpeed');
 
             box.classList.remove('hidden');
-            let completed = 0;
-            let startTime = Date.now();
-
-            files.forEach(file => {
-                const params = { Bucket: bucketName, Key: file.name, Body: file, ContentType: file.type };
-                
-                s3.upload(params)
-                .on('httpUploadProgress', (evt) => {
-                    const pct = Math.round((evt.loaded / evt.total) * 100);
-                    bar.style.width = pct + '%';
-                    
-                    const timeElapsed = (Date.now() - startTime) / 1000;
-                    if(timeElapsed > 0) {
-                        const mbLoaded = evt.loaded / 1024 / 1024;
-                        const speed = (mbLoaded / timeElapsed).toFixed(1);
-                        spd.innerText = `${speed} MB/s`;
-                    }
-                    txt.innerText = `UPLOADING ${pct}%`;
-                })
-                .send((err) => {
-                    completed++;
-                    if(err) console.error(err);
-                    if(completed === files.length) {
-                        box.classList.add('hidden');
-                        refresh();
-                    }
-                });
-            });
-            input.value = '';
-        }
-
-        // --- PREVIEW ENGINE REBUILT ---
-        function openViewer(url, key, type) {
-            currentViewerKey = key;
-            const container = document.getElementById('viewerContent');
-            const title = document.getElementById('viewerTitle');
-            const dlBtn = document.getElementById('viewerDownload');
             
-            title.innerText = key;
-            dlBtn.href = url;
+            // 1. Calculate Total Batch Size for smooth aggregate progress
+            const totalBytes = files.reduce((acc, file) => acc + file.size, 0);
+            const fileProgress = new Array(files.length).fill(0); // Store progress of each file
             
-            // 1. Wipe previous content
-            container.innerHTML = '';
+            let completedCount = 0;
+            const startTime = Date.now();
 
-            // 2. Create Loader Element
-            const loaderDiv = document.createElement('div');
-            loaderDiv.id = 'tempLoader';
-            loaderDiv.className = 'absolute inset-0 flex flex-col items-center justify-center z-0';
-            loaderDiv.innerHTML = '<span class="loader"></span><span class="text-xs text-neutral-500 font-mono mt-3 animate-pulse">LOADING...</span>';
-            container.appendChild(loaderDiv);
-
-            document.getElementById('viewer').classList.remove('hidden');
-
-            // 3. Inject Content based on type
-            if(type === 'image') {
-                const img = new Image();
-                img.src = url;
-                img.className = "relative z-10 max-w-full max-h-full object-contain hidden rounded-lg shadow-2xl"; 
-                
-                img.onload = () => {
-                    document.getElementById('tempLoader')?.remove();
-                    img.classList.remove('hidden');
-                };
-                img.onerror = () => {
-                    document.getElementById('tempLoader').innerHTML = '<span class="text-neutral-500">Image Load Failed</span>';
-                };
-                container.appendChild(img);
-
-            } else if (type === 'video') {
-                const vid = document.createElement('video');
-                vid.src = url;
-                vid.controls = true;
-                vid.autoplay = true;
-                vid.className = "relative z-10 max-w-full max-h-full rounded-lg bg-black hidden";
-                
-                vid.oncanplay = () => {
-                    document.getElementById('tempLoader')?.remove();
-                    vid.classList.remove('hidden');
-                };
-                container.appendChild(vid);
-
-            } else if (type === 'audio') {
-                document.getElementById('tempLoader')?.remove();
-                container.innerHTML = `<div class="bg-neutral-900 p-8 rounded-2xl flex flex-col items-center border border-neutral-800"><div class="w-20 h-20 bg-neutral-800 rounded-full flex items-center justify-center mb-6"><i class="ph-fill ph-music-notes text-4xl text-white"></i></div><audio controls autoplay src="${url}" class="w-64"></audio></div>`;
-
-            } else if (type === 'pdf') {
-                const canvas = document.createElement('canvas');
-                canvas.className = 'relative z-10 max-w-full max-h-full rounded-lg bg-white hidden';
-                container.appendChild(canvas);
-                
-                pdfjsLib.getDocument(url).promise.then(pdf => {
-                    pdf.getPage(1).then(page => {
-                        document.getElementById('tempLoader')?.remove();
-                        canvas.classList.remove('hidden');
-                        
-                        const ctx = canvas.getContext('2d');
-                        const viewport = page.getViewport({scale: 1});
-                        // Calculate scale to fit container
-                        const scale = Math.min(
-                            container.clientWidth / viewport.width,
-                            container.clientHeight / viewport.height
-                        );
-                        const scaledViewport = page.getViewport({scale: scale});
-                        
-                        canvas.height = scaledViewport.height;
-                        canvas.width = scaledViewport.width;
-                        page.render({canvasContext: ctx, viewport: scaledViewport});
-                    });
-                }).catch(e => {
-                    document.getElementById('tempLoader').innerHTML = '<span class="text-neutral-500">PDF Error (CORS?)</span>';
-                });
-
-            } else if (type === 'code') {
-                fetch(url).then(r => r.text()).then(txt => {
-                    document.getElementById('tempLoader')?.remove();
-                    container.innerHTML = `<div class="w-full h-full bg-neutral-900 border border-neutral-800 p-6 overflow-auto rounded-lg text-left"><pre class="text-xs font-mono text-neutral-300 whitespace-pre-wrap">${txt.replace(/</g, '&lt;')}</pre></div>`;
-                }).catch(e => {
-                    document.getElementById('tempLoader').innerHTML = '<span class="text-neutral-500">Text Load Failed</span>';
-                });
-
-            } else {
-                document.getElementById('tempLoader')?.remove();
-                container.innerHTML = `<div class="text-center bg-neutral-900 p-8 rounded-2xl border border-neutral-800"><i class="ph-duotone ph-file text-5xl text-neutral-600 mb-4"></i><p class="text-neutral-400 text-sm font-mono">NO PREVIEW</p></div>`;
-            }
-        }
-
-        function closeViewer() {
-            document.getElementById('viewer').classList.add('hidden');
-            document.getElementById('viewerContent').innerHTML = ''; // Stop playback/clear mem
-        }
-
-        // --- DELETE ---
-        function promptDelete(key) {
-            fileToDelete = key;
-            document.getElementById('deleteModal').classList.remove('hidden');
-        }
-
-        function closeDeleteModal() {
-            document.getElementById('deleteModal').classList.add('hidden');
-            fileToDelete = null;
-        }
-
-        document.getElementById('confirmDeleteBtn').onclick = function() {
-            if(!fileToDelete) return;
-            const btn = this;
-            const originalText = btn.innerText;
-            btn.innerText = "DELETING...";
-            
-            s3.deleteObject({ Bucket: bucketName, Key: fileToDelete }, (err) => {
-                btn.innerText = originalText;
-                closeDeleteModal();
-                if(err) {
-                    if(err.statusCode === 0) document.getElementById('corsModal').classList.remove('hidden');
-                    else alert("Error: " + err.message);
-                } else {
-                    if(currentViewerKey === fileToDelete) closeViewer();
-                    refresh();
-                }
-            });
-        };
-
-        function deleteCurrentFile() {
-            promptDelete(currentViewerKey);
-        }
-
-        function logout() {
-            if(confirm("Sign out of Panda Cloud?")) {
-                localStorage.clear();
-                location.reload();
-            }
-        }
-
-        function getFileType(ext) {
-            if(['jpg','jpeg','png','webp','gif','svg','heic'].includes(ext)) return 'image';
-            if(['mp4','mov','webm','mkv'].includes(ext)) return 'video';
-            if(['mp3','wav','m4a','ogg'].includes(ext)) return 'audio';
-            if(['pdf'].includes(ext)) return 'pdf';
-            if(['html','css','js','json','xml','txt','py','md'].includes(ext)) return 'code';
-            if(['zip','rar','7z'].includes(ext)) return 'archive';
-            return 'other';
-        }
-
-        function formatSize(bytes) {
-            if(bytes === 0) return '0 B';
-            const k = 1024;
-            const sizes = ['B', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-        }
-    </script>
-</body>
-</html>
+            files.forEach((file, index) => {
+                const params = { Bucket: bucketName, Key: file.name, Body: file, Conten
