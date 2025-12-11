@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -24,15 +23,12 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* Selection Color */
         ::selection { background: #ffffff; color: #000000; }
 
-        /* Scrollbar */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: #000000; }
         ::-webkit-scrollbar-thumb { background: #333333; border-radius: 2px; }
 
-        /* Loader Animation */
         .loader {
             width: 20px; height: 20px;
             border: 2px solid #333333;
@@ -43,10 +39,9 @@
         }
         @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Utility */
         .glass-panel {
-            background-color: #111111;
-            border: 1px solid #222222;
+            background-color: #0a0a0a;
+            border: 1px solid #222;
         }
     </style>
 </head>
@@ -126,6 +121,7 @@
             <div class="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
                 <div id="progressBar" class="h-full bg-white transition-all duration-150 ease-out" style="width: 0%"></div>
             </div>
+            <div id="queueStatus" class="text-[9px] text-neutral-600 mt-1 font-mono uppercase text-right">Queue Active</div>
         </div>
 
         <!-- File Grid -->
@@ -145,7 +141,7 @@
             <div class="w-14 h-14 bg-white hover:bg-neutral-200 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95">
                 <i class="ph-bold ph-upload-simple text-2xl text-black"></i>
             </div>
-            <input type="file" multiple class="hidden" onchange="handleUpload(this)">
+            <input type="file" multiple class="hidden" onchange="initUploadQueue(this)">
         </label>
     </div>
 
@@ -191,9 +187,12 @@
     <!-- 5. CORS ERROR MODAL -->
     <div id="corsModal" class="fixed inset-0 z-[60] bg-black/90 hidden flex items-center justify-center p-6 backdrop-blur-sm">
         <div class="glass-panel w-full max-w-md p-6 rounded-2xl">
-            <h3 class="text-lg font-bold text-white mb-2 font-mono uppercase">Connection Error</h3>
+            <h3 class="text-lg font-bold text-white mb-2 font-mono uppercase">CORS / Connection Error</h3>
             <p class="text-sm text-neutral-400 mb-4 leading-relaxed">
-                The storage bucket is blocking the connection. You must add this CORS configuration to your bucket settings:
+                The upload failed because the browser was blocked by the storage bucket.
+                <br><br>
+                1. Check your internet connection.<br>
+                2. If internet is fine, you <b>must</b> add this CORS Rule to your Bucket Settings:
             </p>
             <div class="bg-black border border-neutral-800 rounded-lg p-4 mb-6 overflow-x-auto">
                 <code class="text-[10px] text-neutral-300 font-mono whitespace-pre select-all">
@@ -214,16 +213,27 @@
     </div>
 
     <script>
-        // CONFIGURATION
+        // --- CONFIGURATION ---
         const CONFIG = {
             endpoint: 'https://s3.tebi.io', 
             s3ForcePathStyle: true,
             signatureVersion: 'v4',
-            httpOptions: { timeout: 0 }
+            httpOptions: { timeout: 0 } // Disable timeout for large files
         };
 
+        // --- GLOBAL STATE ---
         let s3, bucketName, nextToken, currentViewerKey;
         let fileToDelete = null;
+
+        // Upload Queue State
+        const UPLOAD_CONCURRENCY = 3; // Upload 3 files at a time to prevent breaking
+        let uploadQueue = [];
+        let activeUploads = 0;
+        let totalUploadBytes = 0;
+        let loadedUploadBytes = 0;
+        let uploadStartTime = 0;
+        let isUploading = false;
+        let uploadProgressMap = new Map(); // Tracks progress of each file by index
 
         // --- AUTH & INIT ---
         document.addEventListener('DOMContentLoaded', () => {
@@ -247,13 +257,10 @@
             btn.innerHTML = '<span class="loader"></span>';
             btn.disabled = true;
 
-            // Initialize S3
-            // Important: We default to us-east-1 for Tebi/generic S3 to avoid region errors
             AWS.config.update({ accessKeyId: ak, secretAccessKey: sk, region: 'us-east-1', ...CONFIG });
             s3 = new AWS.S3();
             bucketName = b;
 
-            // Test Connection
             s3.listObjectsV2({ Bucket: bucketName, MaxKeys: 1 }, (err) => {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
@@ -276,7 +283,6 @@
             });
         }
 
-        // --- FILE HANDLING ---
         function refresh() {
             document.getElementById('grid').innerHTML = '';
             nextToken = null;
@@ -296,7 +302,6 @@
             if(nextToken) params.ContinuationToken = nextToken;
 
             s3.listObjectsV2(params, (err, data) => {
-                // Clear loading state
                 if(grid.innerHTML.includes('Syncing...')) grid.innerHTML = '';
 
                 if(err) {
@@ -313,7 +318,6 @@
                     return;
                 }
 
-                // Sort by newest first
                 files.sort((a,b) => b.LastModified - a.LastModified);
 
                 files.forEach(file => {
@@ -321,8 +325,6 @@
                     const ext = file.Key.split('.').pop().toLowerCase();
                     const size = formatSize(file.Size);
                     const type = getFileType(ext);
-
-                    // Sanitized Name for Display
                     const displayName = file.Key.length > 20 ? file.Key.substring(0, 15) + '...' + ext : file.Key;
 
                     const el = document.createElement('div');
@@ -338,7 +340,6 @@
                         else if(type === 'pdf') iconClass = 'ph-file-pdf';
                         else if(type === 'code') iconClass = 'ph-code';
                         else if(type === 'archive') iconClass = 'ph-package';
-                        
                         thumbHtml = `<div class="w-full h-full flex flex-col items-center justify-center bg-neutral-900 gap-2"><i class="ph-fill ${iconClass} text-3xl text-neutral-600 group-hover:text-white transition"></i><span class="text-[9px] font-bold text-neutral-500 uppercase border border-neutral-800 px-1 rounded bg-black">${ext}</span></div>`;
                     }
 
@@ -360,226 +361,4 @@
                 });
 
                 if(data.IsTruncated) {
-                    nextToken = data.NextContinuationToken;
-                    loadBtn.classList.remove('hidden');
-                } else {
-                    nextToken = null;
-                }
-            });
-        }
-
-        // --- ROBUST AGGREGATE UPLOAD ---
-        function handleUpload(input) {
-            const files = Array.from(input.files);
-            if (files.length === 0) return;
-
-            const box = document.getElementById('progressBox');
-            const bar = document.getElementById('progressBar');
-            const txt = document.getElementById('progressText');
-            const spd = document.getElementById('progressSpeed');
-
-            box.classList.remove('hidden');
-            
-            // 1. Calculate Total Batch Size
-            const totalBytes = files.reduce((acc, file) => acc + file.size, 0);
-            const fileProgress = new Array(files.length).fill(0); 
-            
-            let completedCount = 0;
-            const startTime = Date.now();
-            let hasErrors = false;
-
-            files.forEach((file, index) => {
-                // Sanitize file name to prevent key errors
-                const sanitizedKey = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-                
-                const params = { Bucket: bucketName, Key: sanitizedKey, Body: file, ContentType: file.type };
-                
-                s3.upload(params)
-                .on('httpUploadProgress', (evt) => {
-                    fileProgress[index] = evt.loaded;
-                    const totalLoaded = fileProgress.reduce((a, b) => a + b, 0);
-                    
-                    // Math for Aggregate Percentage
-                    const pct = totalBytes > 0 ? Math.round((totalLoaded / totalBytes) * 100) : 100;
-                    bar.style.width = pct + '%';
-                    
-                    // Speed Calculation
-                    const timeElapsed = (Date.now() - startTime) / 1000;
-                    if(timeElapsed > 0) {
-                        const mbLoaded = totalLoaded / 1024 / 1024;
-                        const speed = (mbLoaded / timeElapsed).toFixed(1);
-                        spd.innerText = `${speed} MB/s`;
-                    }
-                    txt.innerText = `UPLOADING ${pct}%`;
-                })
-                .send((err) => {
-                    completedCount++;
-                    if(err) {
-                        console.error("Upload Error:", err);
-                        hasErrors = true;
-                    }
-                    
-                    if(completedCount === files.length) {
-                        // Batch Done
-                        setTimeout(() => {
-                            box.classList.add('hidden');
-                            bar.style.width = '0%';
-                            refresh();
-                            if(hasErrors) alert("Some files failed to upload. Check CORS settings.");
-                        }, 500);
-                    }
-                });
-            });
-            input.value = '';
-        }
-
-        // --- VIEWER LOGIC ---
-        function openViewer(url, key, type) {
-            currentViewerKey = key;
-            const container = document.getElementById('viewerContent');
-            const title = document.getElementById('viewerTitle');
-            const dlBtn = document.getElementById('viewerDownload');
-            
-            title.innerText = key;
-            dlBtn.href = url;
-            container.innerHTML = ''; 
-
-            // Temporary Loader
-            const loaderDiv = document.createElement('div');
-            loaderDiv.id = 'tempLoader';
-            loaderDiv.className = 'absolute inset-0 flex flex-col items-center justify-center z-0';
-            loaderDiv.innerHTML = '<span class="loader"></span><span class="text-xs text-neutral-500 font-mono mt-3 animate-pulse">DOWNLOADING...</span>';
-            container.appendChild(loaderDiv);
-
-            document.getElementById('viewer').classList.remove('hidden');
-
-            try {
-                if(type === 'image') {
-                    const img = new Image();
-                    img.crossOrigin = "anonymous"; // Try CORS immediately
-                    img.src = url;
-                    img.className = "relative z-10 max-w-full max-h-full object-contain hidden rounded-lg shadow-2xl"; 
-                    img.onload = () => { document.getElementById('tempLoader')?.remove(); img.classList.remove('hidden'); };
-                    img.onerror = () => { document.getElementById('tempLoader').innerHTML = '<span class="text-neutral-500">Image Load Error (CORS?)</span>'; };
-                    container.appendChild(img);
-                } 
-                else if (type === 'video') {
-                    const vid = document.createElement('video');
-                    vid.src = url;
-                    vid.controls = true;
-                    vid.autoplay = true;
-                    vid.className = "relative z-10 max-w-full max-h-full rounded-lg bg-black hidden";
-                    vid.oncanplay = () => { document.getElementById('tempLoader')?.remove(); vid.classList.remove('hidden'); };
-                    vid.onerror = () => { document.getElementById('tempLoader').innerHTML = '<span class="text-neutral-500">Video Load Error</span>'; };
-                    container.appendChild(vid);
-                } 
-                else if (type === 'audio') {
-                    document.getElementById('tempLoader')?.remove();
-                    container.innerHTML = `<div class="bg-neutral-900 p-8 rounded-2xl flex flex-col items-center border border-neutral-800"><div class="w-20 h-20 bg-neutral-800 rounded-full flex items-center justify-center mb-6"><i class="ph-fill ph-music-notes text-4xl text-white"></i></div><audio controls autoplay src="${url}" class="w-64"></audio></div>`;
-                } 
-                else if (type === 'pdf') {
-                    const canvas = document.createElement('canvas');
-                    canvas.className = 'relative z-10 max-w-full max-h-full rounded-lg bg-white hidden';
-                    container.appendChild(canvas);
-                    
-                    pdfjsLib.getDocument(url).promise.then(pdf => {
-                        pdf.getPage(1).then(page => {
-                            document.getElementById('tempLoader')?.remove();
-                            canvas.classList.remove('hidden');
-                            const ctx = canvas.getContext('2d');
-                            const scale = Math.min(container.clientWidth / page.getViewport({scale:1}).width, 1.5);
-                            const viewport = page.getViewport({scale: scale});
-                            canvas.height = viewport.height;
-                            canvas.width = viewport.width;
-                            page.render({canvasContext: ctx, viewport: viewport});
-                        });
-                    }).catch(e => {
-                        document.getElementById('tempLoader').innerHTML = '<span class="text-neutral-500">PDF Preview Error (CORS)</span>';
-                    });
-                } 
-                else if (type === 'code') {
-                    fetch(url).then(r => r.text()).then(txt => {
-                        document.getElementById('tempLoader')?.remove();
-                        container.innerHTML = `<div class="w-full h-full bg-neutral-900 border border-neutral-800 p-6 overflow-auto rounded-lg text-left"><pre class="text-xs font-mono text-neutral-300 whitespace-pre-wrap">${txt.replace(/</g, '&lt;')}</pre></div>`;
-                    }).catch(e => {
-                        document.getElementById('tempLoader').innerHTML = '<span class="text-neutral-500">Text Preview Error</span>';
-                    });
-                } 
-                else {
-                    document.getElementById('tempLoader')?.remove();
-                    container.innerHTML = `<div class="text-center bg-neutral-900 p-8 rounded-2xl border border-neutral-800"><i class="ph-duotone ph-file text-5xl text-neutral-600 mb-4"></i><p class="text-neutral-400 text-sm font-mono">NO PREVIEW</p></div>`;
-                }
-            } catch(e) {
-                console.error("Viewer Error", e);
-                document.getElementById('tempLoader').innerHTML = '<span class="text-neutral-500">Render Error</span>';
-            }
-        }
-
-        function closeViewer() {
-            document.getElementById('viewer').classList.add('hidden');
-            document.getElementById('viewerContent').innerHTML = ''; 
-        }
-
-        // --- DELETE ---
-        function promptDelete(key) {
-            fileToDelete = key;
-            document.getElementById('deleteModal').classList.remove('hidden');
-        }
-
-        function closeDeleteModal() {
-            document.getElementById('deleteModal').classList.add('hidden');
-            fileToDelete = null;
-        }
-
-        document.getElementById('confirmDeleteBtn').onclick = function() {
-            if(!fileToDelete) return;
-            const btn = this;
-            const originalText = btn.innerText;
-            btn.innerText = "DELETING...";
-            
-            s3.deleteObject({ Bucket: bucketName, Key: fileToDelete }, (err) => {
-                btn.innerText = originalText;
-                closeDeleteModal();
-                if(err) {
-                    if(err.statusCode === 0) document.getElementById('corsModal').classList.remove('hidden');
-                    else alert("Error: " + err.message);
-                } else {
-                    if(currentViewerKey === fileToDelete) closeViewer();
-                    refresh();
-                }
-            });
-        };
-
-        function deleteCurrentFile() {
-            promptDelete(currentViewerKey);
-        }
-
-        function logout() {
-            if(confirm("Lock Vault & Exit?")) {
-                localStorage.clear();
-                location.reload();
-            }
-        }
-
-        function getFileType(ext) {
-            if(['jpg','jpeg','png','webp','gif','svg','heic'].includes(ext)) return 'image';
-            if(['mp4','mov','webm','mkv'].includes(ext)) return 'video';
-            if(['mp3','wav','m4a','ogg'].includes(ext)) return 'audio';
-            if(['pdf'].includes(ext)) return 'pdf';
-            if(['html','css','js','json','xml','txt','py','md','nim','ex','exs'].includes(ext)) return 'code';
-            if(['zip','rar','7z'].includes(ext)) return 'archive';
-            return 'other';
-        }
-
-        function formatSize(bytes) {
-            if(bytes === 0) return '0 B';
-            const k = 1024;
-            const sizes = ['B', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-        }
-    </script>
-</body>
-</html>
-
-
+                    nextTo
