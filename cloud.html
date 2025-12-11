@@ -44,7 +44,20 @@
         }
         
         .clickable { cursor: pointer; user-select: none; }
-        .upload-disabled { opacity: 0.3; pointer-events: none; }
+        .upload-disabled { 
+            opacity: 0.3; 
+            pointer-events: none; 
+        }
+        .upload-disabled .fa-button {
+            background-color: #333333 !important;
+            cursor: not-allowed !important;
+        }
+
+        /* Drag and drop visual feedback */
+        .drag-over {
+            background-color: #1a1a1a !important;
+            transition: background-color 0.2s ease;
+        }
 
         /* Animation for new items */
         @keyframes slideDown {
@@ -146,12 +159,12 @@
         </div>
 
         <!-- Upload FAB (Fixed Click Area) -->
-        <div id="uploadFab" class="fixed bottom-6 right-6 z-40 group cursor-pointer w-14 h-14">
-            <div class="w-full h-full bg-white hover:bg-neutral-200 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 absolute inset-0 pointer-events-none">
+        <div id="uploadFab" class="fixed bottom-6 right-6 z-40 group cursor-pointer w-14 h-14" onclick="document.getElementById('fileInput').click()">
+            <div class="w-full h-full bg-white hover:bg-neutral-200 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 absolute inset-0 fa-button">
                 <i class="ph-bold ph-upload-simple text-2xl text-black"></i>
             </div>
-            <!-- Input covers the entire button area -->
-            <input type="file" multiple id="fileInput" class="opacity-0 w-full h-full cursor-pointer relative z-10">
+            <!-- Hidden file input -->
+            <input type="file" multiple id="fileInput" class="hidden" accept="*/*">
         </div>
     </div>
 
@@ -227,7 +240,10 @@
             endpoint: 'https://s3.tebi.io', 
             s3ForcePathStyle: true,
             signatureVersion: 'v4',
-            httpOptions: { timeout: 0 } 
+            httpOptions: { 
+                timeout: 30000,  // 30 second timeout
+                connectTimeout: 10000  // 10 second connection timeout
+            } 
         };
 
         let s3, bucketName, nextToken, currentViewerKey;
@@ -248,7 +264,41 @@
             document.getElementById('refreshBtn').addEventListener('click', refresh);
             document.getElementById('logoutBtn').addEventListener('click', logout);
             document.getElementById('loadMoreAction').addEventListener('click', loadNextPage);
-            document.getElementById('fileInput').addEventListener('change', (e) => startUploadBatch(e.target));
+            
+            // File input event listener with debugging
+            const fileInput = document.getElementById('fileInput');
+            console.log('File input element:', fileInput);
+            fileInput.addEventListener('change', (e) => {
+                console.log('File input changed, files:', e.target.files);
+                startUploadBatch(e.target);
+            });
+
+            // Add drag and drop functionality
+            const app = document.getElementById('app');
+            app.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                app.classList.add('drag-over');
+            });
+            
+            app.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                if (!app.contains(e.relatedTarget)) {
+                    app.classList.remove('drag-over');
+                }
+            });
+            
+            app.addEventListener('drop', (e) => {
+                e.preventDefault();
+                app.classList.remove('drag-over');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    console.log('Files dropped:', files);
+                    // Create a temporary input to use existing upload logic
+                    const tempInput = { files: files, value: '' };
+                    startUploadBatch(tempInput);
+                }
+            });
             
             document.getElementById('closeViewerBtn').addEventListener('click', closeViewer);
             document.getElementById('viewerDeleteBtn').addEventListener('click', deleteCurrentFile);
@@ -398,6 +448,8 @@
                 else if(type === 'pdf') iconClass = 'ph-file-pdf';
                 else if(type === 'code') iconClass = 'ph-code';
                 else if(type === 'archive') iconClass = 'ph-package';
+                else if(type === 'document') iconClass = 'ph-file-text';
+                
                 thumbDiv.innerHTML = `<div class="w-full h-full flex flex-col items-center justify-center bg-neutral-900 gap-2"><i class="ph-fill ${iconClass} text-3xl text-neutral-600 group-hover:text-white transition"></i><span class="text-[9px] font-bold text-neutral-500 uppercase border border-neutral-800 px-1 rounded bg-black">${ext}</span></div>`;
             }
 
@@ -437,38 +489,74 @@
         // --- STABLE SEQUENTIAL UPLOAD ---
         
         function startUploadBatch(input) {
+            console.log('Starting upload batch, input:', input);
             const files = Array.from(input.files);
-            if (files.length === 0) return;
+            console.log('Files to upload:', files);
+            
+            if (files.length === 0) {
+                console.log('No files selected');
+                return;
+            }
+
+            // Validate S3 connection first
+            if (!s3 || !bucketName) {
+                alert('Please log in first before uploading files.');
+                return;
+            }
+
+            // Check if already uploading
+            if (!document.getElementById('uploadFab').classList.contains('upload-disabled')) {
+                console.log('Starting new upload batch with', files.length, 'files');
+            } else {
+                console.log('Upload already in progress, ignoring new files');
+                return;
+            }
 
             // Lock UI
             document.getElementById('uploadFab').classList.add('upload-disabled');
             document.getElementById('progressBox').classList.remove('hidden');
             
             // Reset State
-            uploadQueue = files;
+            uploadQueue = [...files]; // Create a copy to avoid reference issues
             totalBatchBytes = files.reduce((acc, f) => acc + f.size, 0);
             loadedBatchBytes = 0;
             currentFileBytesLoaded = 0;
             startTime = Date.now();
             activeUploads = 0;
             
-            // Clear Input
-            input.value = '';
+            console.log('Upload batch initialized:', {
+                fileCount: files.length,
+                totalSize: totalBatchBytes,
+                concurrency: UPLOAD_CONCURRENCY
+            });
+            
+            // Clear Input (only if it has a value property)
+            if (input.value !== undefined) {
+                input.value = '';
+            }
 
             // Start Processing Loop
             processQueue();
         }
 
         function processQueue() {
+            console.log('Processing queue:', {
+                queueLength: uploadQueue.length,
+                activeUploads: activeUploads,
+                concurrency: UPLOAD_CONCURRENCY
+            });
+            
             // Check concurrency and queue
             while (activeUploads < UPLOAD_CONCURRENCY && uploadQueue.length > 0) {
                 const file = uploadQueue.shift(); // REMOVE FROM QUEUE IMMEDIATELY (Fixes duplication bug)
+                console.log('Starting upload for file:', file.name);
                 activeUploads++;
                 uploadFile(file);
             }
 
             // Check if completely done
             if (uploadQueue.length === 0 && activeUploads === 0) {
+                console.log('All uploads completed');
                 finishUpload();
             }
         }
@@ -477,8 +565,16 @@
             // Update UI text
             document.getElementById('progressText').innerText = `UPLOADING: ${file.name.substring(0,15)}`;
             
-            const sanitizedKey = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-            const params = { Bucket: bucketName, Key: sanitizedKey, Body: file, ContentType: file.type };
+            // Better file name sanitization - preserve more characters but ensure S3 compatibility
+            const sanitizedKey = file.name.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_');
+            const params = { 
+                Bucket: bucketName, 
+                Key: sanitizedKey, 
+                Body: file, 
+                ContentType: file.type || 'application/octet-stream'
+            };
+
+            console.log('Uploading file:', sanitizedKey, 'Size:', file.size, 'Type:', file.type);
 
             const upload = s3.upload(params);
 
@@ -492,9 +588,33 @@
 
                 if (err) {
                     console.error("Upload Fail:", err);
-                    alert(`Failed to upload ${file.name}.`);
+                    console.error("File details:", { name: file.name, size: file.size, type: file.type });
+                    
+                    // Better error handling
+                    let errorMessage = `Failed to upload ${file.name}`;
+                    if (err.code === 'NetworkingError' || err.statusCode === 0) {
+                        errorMessage += ' (Network/CORS issue)';
+                        // Show CORS modal if not already shown
+                        const corsModal = document.getElementById('corsModal');
+                        if (!corsModal.classList.contains('hidden')) {
+                            // Don't show modal again if already visible
+                        } else {
+                            showModal('corsModal');
+                        }
+                    } else if (err.code === 'AccessDenied') {
+                        errorMessage += ' (Access denied - check credentials)';
+                    } else if (err.code === 'NoSuchBucket') {
+                        errorMessage += ' (Bucket not found)';
+                    } else if (err.statusCode === 413) {
+                        errorMessage += ' (File too large)';
+                    }
+                    
+                    alert(errorMessage);
+                    
                     // Don't stop batch, just continue
                 } else {
+                    console.log('Upload successful:', data);
+                    
                     // SUCCESS: Optimistic Render
                     loadedBatchBytes += file.size;
                     currentFileBytesLoaded = 0;
@@ -627,8 +747,17 @@
         function showModal(id) { document.getElementById(id).classList.remove('hidden'); }
         function hideModal(id) { document.getElementById(id).classList.add('hidden'); }
         function getFileType(ext) {
-            if(['jpg','jpeg','png','webp','gif'].includes(ext)) return 'image';
-            if(['mp4','mov','webm'].includes(ext)) return 'video';
+            if(!ext) return 'other';
+            ext = ext.toLowerCase();
+            
+            if(['jpg','jpeg','png','webp','gif','bmp','tiff','svg','ico'].includes(ext)) return 'image';
+            if(['mp4','mov','webm','avi','mkv','wmv','flv','m4v'].includes(ext)) return 'video';
+            if(['mp3','wav','flac','aac','ogg','m4a','wma'].includes(ext)) return 'audio';
+            if(['pdf'].includes(ext)) return 'pdf';
+            if(['txt','js','html','css','json','xml','yaml','yml','md','py','java','cpp','c','h'].includes(ext)) return 'code';
+            if(['zip','rar','7z','tar','gz','bz2'].includes(ext)) return 'archive';
+            if(['doc','docx','xls','xlsx','ppt','pptx'].includes(ext)) return 'document';
+            
             return 'other';
         }
         function formatSize(bytes) {
