@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -44,11 +43,15 @@
             border: 1px solid #222;
         }
         
-        /* Utility to ensure clicks register */
-        .clickable {
-            cursor: pointer;
-            user-select: none;
+        .clickable { cursor: pointer; user-select: none; }
+        .upload-disabled { opacity: 0.3; pointer-events: none; }
+
+        /* Animation for new items */
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
+        .new-item { animation: slideDown 0.3s ease-out forwards; }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden text-sm selection:bg-white selection:text-black">
@@ -121,13 +124,13 @@
         <!-- Progress Bar (Fixed) -->
         <div id="progressBox" class="hidden bg-neutral-900 border-b border-neutral-800 px-4 py-3 shrink-0">
             <div class="flex justify-between text-xs font-mono text-white mb-1.5">
-                <span id="progressText">UPLOADING...</span>
-                <span id="progressSpeed" class="text-neutral-500">0 MB/s</span>
+                <span id="progressText">PREPARING...</span>
+                <span id="progressSpeed" class="text-neutral-500">Wait...</span>
             </div>
             <div class="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
-                <div id="progressBar" class="h-full bg-white transition-all duration-150 ease-out" style="width: 0%"></div>
+                <div id="progressBar" class="h-full bg-white transition-all duration-200 ease-out" style="width: 0%"></div>
             </div>
-            <div id="queueStatus" class="text-[9px] text-neutral-500 mt-1 font-mono uppercase text-right">Initializing...</div>
+            <div id="queueStatus" class="text-[9px] text-neutral-500 mt-1 font-mono uppercase text-right">0/0 Files</div>
         </div>
 
         <!-- File Grid -->
@@ -143,7 +146,7 @@
         </div>
 
         <!-- Upload FAB (Fixed Click Area) -->
-        <div class="fixed bottom-6 right-6 z-40 group cursor-pointer w-14 h-14">
+        <div id="uploadFab" class="fixed bottom-6 right-6 z-40 group cursor-pointer w-14 h-14">
             <div class="w-full h-full bg-white hover:bg-neutral-200 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 absolute inset-0 pointer-events-none">
                 <i class="ph-bold ph-upload-simple text-2xl text-black"></i>
             </div>
@@ -220,8 +223,6 @@
 
     <script>
         // --- SAFE INITIALIZATION ---
-        // We wait for DOM to be ready before attaching any listeners
-        
         const CONFIG = {
             endpoint: 'https://s3.tebi.io', 
             s3ForcePathStyle: true,
@@ -232,35 +233,22 @@
         let s3, bucketName, nextToken, currentViewerKey;
         let fileToDelete = null;
 
-        // Upload State
-        const UPLOAD_CONCURRENCY = 2;
+        // UPLOAD STATE
+        const UPLOAD_CONCURRENCY = 2; // Strict Limit
         let uploadQueue = [];
         let activeUploads = 0;
-        let totalUploadBytes = 0;
-        let uploadProgressMap = new Map();
-        let uploadStartTime = 0;
-        let uploadRetryMap = new Map();
+        let totalBatchBytes = 0;
+        let loadedBatchBytes = 0; 
+        let currentFileBytesLoaded = 0;
+        let startTime = 0;
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Check Dependencies
-            if (typeof AWS === 'undefined') {
-                alert("Critical Error: AWS SDK failed to load. Check your internet connection.");
-                return;
-            }
-
-            // Init PDF.js safely
-            if (typeof pdfjsLib !== 'undefined') {
-                try {
-                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                } catch(e) { console.warn("PDF Worker Init Warning", e); }
-            }
-
-            // Bind Static Buttons (Using addEventListener is safer than onclick HTML attribute)
+            // Bind Static Buttons safely
             document.getElementById('loginForm').addEventListener('submit', (e) => { e.preventDefault(); login(); });
             document.getElementById('refreshBtn').addEventListener('click', refresh);
             document.getElementById('logoutBtn').addEventListener('click', logout);
             document.getElementById('loadMoreAction').addEventListener('click', loadNextPage);
-            document.getElementById('fileInput').addEventListener('change', (e) => initUploadQueue(e.target));
+            document.getElementById('fileInput').addEventListener('change', (e) => startUploadBatch(e.target));
             
             document.getElementById('closeViewerBtn').addEventListener('click', closeViewer);
             document.getElementById('viewerDeleteBtn').addEventListener('click', deleteCurrentFile);
@@ -268,6 +256,7 @@
             document.getElementById('helpBtn').addEventListener('click', () => showModal('corsModal'));
             document.getElementById('closeCorsBtn').addEventListener('click', () => hideModal('corsModal'));
             
+            // Fix: Bind to closeDeleteModal properly
             document.getElementById('cancelDeleteBtn').addEventListener('click', closeDeleteModal);
             document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDelete);
 
@@ -352,64 +341,16 @@
                 document.getElementById('status').innerText = `${(files.length + grid.children.length)} OBJECTS`;
 
                 if(files.length === 0 && grid.children.length === 0) {
-                    grid.innerHTML = `<div class="col-span-full flex flex-col items-center justify-center text-neutral-700 mt-20"><i class="ph-duotone ph-folder-open text-4xl mb-4"></i><p class="text-sm font-medium">VAULT EMPTY</p></div>`;
+                    grid.innerHTML = `<div id="emptyState" class="col-span-full flex flex-col items-center justify-center text-neutral-700 mt-20"><i class="ph-duotone ph-folder-open text-4xl mb-4"></i><p class="text-sm font-medium">VAULT EMPTY</p></div>`;
                     return;
                 }
 
                 files.sort((a,b) => b.LastModified - a.LastModified);
 
-                // SAFELY CREATE ELEMENTS (Avoids innerHTML quote bugs)
+                // SAFELY CREATE ELEMENTS
                 files.forEach(file => {
                     const url = s3.getSignedUrl('getObject', { Bucket: bucketName, Key: file.Key, Expires: 3600 });
-                    const ext = file.Key.split('.').pop().toLowerCase();
-                    const size = formatSize(file.Size);
-                    const type = getFileType(ext);
-                    const displayName = file.Key.length > 20 ? file.Key.substring(0, 15) + '...' + ext : file.Key;
-
-                    // Container
-                    const el = document.createElement('div');
-                    el.className = 'bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden hover:border-white transition group flex flex-col h-40 relative';
-
-                    // Thumbnail Logic
-                    const thumbDiv = document.createElement('div');
-                    thumbDiv.className = 'flex-1 relative cursor-pointer overflow-hidden bg-black clickable';
-                    // Important: Bind click directly to avoid HTML string issues
-                    thumbDiv.addEventListener('click', () => openViewer(url, file.Key, type));
-
-                    if(type === 'image') {
-                        thumbDiv.innerHTML = `<div class="w-full h-full bg-cover bg-center transition duration-500 group-hover:scale-105 opacity-80 group-hover:opacity-100" style="background-image: url('${url}');"></div>`;
-                    } else {
-                        let iconClass = 'ph-file';
-                        if(type === 'video') iconClass = 'ph-film-strip';
-                        else if(type === 'audio') iconClass = 'ph-speaker-high';
-                        else if(type === 'pdf') iconClass = 'ph-file-pdf';
-                        else if(type === 'code') iconClass = 'ph-code';
-                        else if(type === 'archive') iconClass = 'ph-package';
-                        thumbDiv.innerHTML = `<div class="w-full h-full flex flex-col items-center justify-center bg-neutral-900 gap-2"><i class="ph-fill ${iconClass} text-3xl text-neutral-600 group-hover:text-white transition"></i><span class="text-[9px] font-bold text-neutral-500 uppercase border border-neutral-800 px-1 rounded bg-black">${ext}</span></div>`;
-                    }
-
-                    // Info Bar
-                    const infoBar = document.createElement('div');
-                    infoBar.className = 'h-11 px-3 flex items-center justify-between bg-neutral-900 border-t border-neutral-800';
-                    
-                    const textDiv = document.createElement('div');
-                    textDiv.className = 'flex-1 min-w-0 pr-2';
-                    textDiv.innerHTML = `<p class="text-[11px] font-medium text-neutral-300 truncate font-mono">${displayName}</p><p class="text-[9px] text-neutral-500 font-medium">${size}</p>`;
-
-                    const delBtn = document.createElement('button');
-                    delBtn.className = 'text-neutral-600 hover:text-white transition p-1.5 clickable';
-                    delBtn.innerHTML = '<i class="ph-bold ph-trash"></i>';
-                    delBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        promptDelete(file.Key);
-                    });
-
-                    infoBar.appendChild(textDiv);
-                    infoBar.appendChild(delBtn);
-
-                    el.appendChild(thumbDiv);
-                    el.appendChild(infoBar);
-                    grid.appendChild(el);
+                    createFileCard(file.Key, file.Size, url);
                 });
 
                 if(data.IsTruncated) {
@@ -421,100 +362,184 @@
             });
         }
 
-        // --- UPLOAD ---
+        // --- RENDER HELPER (Shared by Load & Upload) ---
+        function createFileCard(key, sizeBytes, url, isNew = false) {
+            const grid = document.getElementById('grid');
+            
+            // CLEANUP EMPTY STATE
+            const emptyState = document.getElementById('emptyState');
+            if(emptyState) emptyState.remove();
+
+            // Prevent Duplicates
+            if(document.getElementById(`file-${key}`)) return;
+
+            const ext = key.split('.').pop().toLowerCase();
+            const size = formatSize(sizeBytes);
+            const type = getFileType(ext);
+            const displayName = key.length > 20 ? key.substring(0, 15) + '...' + ext : key;
+
+            // Container
+            const el = document.createElement('div');
+            el.id = `file-${key}`; // Unique ID for deduplication
+            el.className = 'bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden hover:border-white transition group flex flex-col h-40 relative';
+            if(isNew) el.classList.add('new-item'); // Add animation for new uploads
+
+            // Thumbnail Logic
+            const thumbDiv = document.createElement('div');
+            thumbDiv.className = 'flex-1 relative cursor-pointer overflow-hidden bg-black clickable';
+            thumbDiv.addEventListener('click', () => openViewer(url, key, type));
+
+            if(type === 'image') {
+                thumbDiv.innerHTML = `<div class="w-full h-full bg-cover bg-center transition duration-500 group-hover:scale-105 opacity-80 group-hover:opacity-100" style="background-image: url('${url}');"></div>`;
+            } else {
+                let iconClass = 'ph-file';
+                if(type === 'video') iconClass = 'ph-film-strip';
+                else if(type === 'audio') iconClass = 'ph-speaker-high';
+                else if(type === 'pdf') iconClass = 'ph-file-pdf';
+                else if(type === 'code') iconClass = 'ph-code';
+                else if(type === 'archive') iconClass = 'ph-package';
+                thumbDiv.innerHTML = `<div class="w-full h-full flex flex-col items-center justify-center bg-neutral-900 gap-2"><i class="ph-fill ${iconClass} text-3xl text-neutral-600 group-hover:text-white transition"></i><span class="text-[9px] font-bold text-neutral-500 uppercase border border-neutral-800 px-1 rounded bg-black">${ext}</span></div>`;
+            }
+
+            // Info Bar
+            const infoBar = document.createElement('div');
+            infoBar.className = 'h-11 px-3 flex items-center justify-between bg-neutral-900 border-t border-neutral-800';
+            
+            const textDiv = document.createElement('div');
+            textDiv.className = 'flex-1 min-w-0 pr-2';
+            textDiv.innerHTML = `<p class="text-[11px] font-medium text-neutral-300 truncate font-mono">${displayName}</p><p class="text-[9px] text-neutral-500 font-medium">${size}</p>`;
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'text-neutral-600 hover:text-white transition p-1.5 clickable';
+            delBtn.innerHTML = '<i class="ph-bold ph-trash"></i>';
+            delBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                promptDelete(key);
+            });
+
+            infoBar.appendChild(textDiv);
+            infoBar.appendChild(delBtn);
+
+            el.appendChild(thumbDiv);
+            el.appendChild(infoBar);
+            
+            // Insert at top if new, else append
+            if(isNew) {
+                grid.insertBefore(el, grid.firstChild);
+                // Force Scroll to Top so user sees it
+                grid.scrollTop = 0;
+            } else {
+                grid.appendChild(el);
+            }
+        }
+
+
+        // --- STABLE SEQUENTIAL UPLOAD ---
         
-        function initUploadQueue(input) {
+        function startUploadBatch(input) {
             const files = Array.from(input.files);
             if (files.length === 0) return;
 
-            files.forEach(f => {
-                uploadQueue.push(f);
-                totalUploadBytes += f.size;
-            });
+            // Lock UI
+            document.getElementById('uploadFab').classList.add('upload-disabled');
+            document.getElementById('progressBox').classList.remove('hidden');
             
-            if(uploadProgressMap.size === 0) {
-                 uploadStartTime = Date.now();
-                 document.getElementById('progressBox').classList.remove('hidden');
-            }
-
-            processUploadQueue();
+            // Reset State
+            uploadQueue = files;
+            totalBatchBytes = files.reduce((acc, f) => acc + f.size, 0);
+            loadedBatchBytes = 0;
+            currentFileBytesLoaded = 0;
+            startTime = Date.now();
+            activeUploads = 0;
+            
+            // Clear Input
             input.value = '';
+
+            // Start Processing Loop
+            processQueue();
         }
 
-        function processUploadQueue() {
-            if (uploadQueue.length === 0 && activeUploads === 0) {
-                finishUploadSession();
-                return;
-            }
-
+        function processQueue() {
+            // Check concurrency and queue
             while (activeUploads < UPLOAD_CONCURRENCY && uploadQueue.length > 0) {
-                const file = uploadQueue.shift();
+                const file = uploadQueue.shift(); // REMOVE FROM QUEUE IMMEDIATELY (Fixes duplication bug)
                 activeUploads++;
-                uploadSingleFile(file);
+                uploadFile(file);
             }
-            document.getElementById('queueStatus').innerText = `QUEUE: ${uploadQueue.length} WAITING | ${activeUploads} ACTIVE`;
+
+            // Check if completely done
+            if (uploadQueue.length === 0 && activeUploads === 0) {
+                finishUpload();
+            }
         }
 
-        function uploadSingleFile(file) {
+        function uploadFile(file) {
+            // Update UI text
+            document.getElementById('progressText').innerText = `UPLOADING: ${file.name.substring(0,15)}`;
+            
             const sanitizedKey = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-            const fileId = sanitizedKey + file.lastModified;
-
             const params = { Bucket: bucketName, Key: sanitizedKey, Body: file, ContentType: file.type };
+
             const upload = s3.upload(params);
 
             upload.on('httpUploadProgress', (evt) => {
-                uploadProgressMap.set(fileId, evt.loaded);
-                updateGlobalProgress();
+                currentFileBytesLoaded = evt.loaded;
+                updateGlobalProgressBar();
             });
 
-            upload.send((err) => {
-                activeUploads--;
+            upload.send((err, data) => {
+                activeUploads--; // Slot freed
+
                 if (err) {
                     console.error("Upload Fail:", err);
-                    let retries = uploadRetryMap.get(fileId) || 0;
-                    if (retries < 3) {
-                        uploadRetryMap.set(fileId, retries + 1);
-                        uploadQueue.unshift(file);
-                    } else if (err.statusCode === 0) {
-                         showModal('corsModal');
-                    }
+                    alert(`Failed to upload ${file.name}.`);
+                    // Don't stop batch, just continue
                 } else {
-                    uploadProgressMap.set(fileId, file.size);
+                    // SUCCESS: Optimistic Render
+                    loadedBatchBytes += file.size;
+                    currentFileBytesLoaded = 0;
+                    
+                    // Force display IMMEDIATELY (Fixes "file not showing")
+                    const url = s3.getSignedUrl('getObject', { Bucket: bucketName, Key: sanitizedKey, Expires: 3600 });
+                    createFileCard(sanitizedKey, file.size, url, true); 
                 }
-                processUploadQueue();
+                
+                // Trigger next file
+                processQueue();
             });
         }
 
-        function updateGlobalProgress() {
-            let currentLoaded = 0;
-            for (let bytes of uploadProgressMap.values()) currentLoaded += bytes;
-
-            const pct = totalUploadBytes > 0 ? Math.round((currentLoaded / totalUploadBytes) * 100) : 0;
-            document.getElementById('progressBar').style.width = pct + '%';
-            document.getElementById('progressText').innerText = `UPLOADING ${pct}%`;
+        function updateGlobalProgressBar() {
+            const totalLoaded = loadedBatchBytes + currentFileBytesLoaded;
+            const pct = totalBatchBytes > 0 ? Math.round((totalLoaded / totalBatchBytes) * 100) : 0;
             
-            const timeElapsed = (Date.now() - uploadStartTime) / 1000;
+            document.getElementById('progressBar').style.width = pct + '%';
+            document.getElementById('queueStatus').innerText = `${uploadQueue.length + activeUploads} Files Remaining`;
+
+            // Speed
+            const timeElapsed = (Date.now() - startTime) / 1000;
             if (timeElapsed > 0) {
-                const speed = (currentLoaded / 1024 / 1024 / timeElapsed).toFixed(1);
+                const speed = (totalLoaded / 1024 / 1024 / timeElapsed).toFixed(1);
                 document.getElementById('progressSpeed').innerText = `${speed} MB/s`;
             }
         }
 
-        function finishUploadSession() {
+        function finishUpload() {
             const bar = document.getElementById('progressBar');
             bar.style.width = '100%';
-            document.getElementById('progressText').innerText = "PROCESSING...";
+            document.getElementById('progressText').innerText = "DONE";
+            
             setTimeout(() => {
                 document.getElementById('progressBox').classList.add('hidden');
+                document.getElementById('uploadFab').classList.remove('upload-disabled');
                 bar.style.width = '0%';
-                uploadQueue = [];
-                activeUploads = 0;
-                totalUploadBytes = 0;
-                uploadProgressMap.clear();
-                uploadRetryMap.clear();
-                refresh();
+                
+                // Let's verify status count
+                const grid = document.getElementById('grid');
+                document.getElementById('status').innerText = `${grid.children.length} OBJECTS`;
             }, 800);
         }
+
 
         // --- VIEWER ---
         function openViewer(url, key, type) {
@@ -527,7 +552,6 @@
             
             document.getElementById('viewer').classList.remove('hidden');
 
-            // Safe Render
             try {
                 if(type === 'image') {
                     const img = new Image();
@@ -538,7 +562,6 @@
                 } else if (type === 'video') {
                      container.innerHTML = `<video src="${url}" controls autoplay class="relative z-10 max-w-full max-h-full rounded-lg bg-black"></video>`;
                 } else {
-                    // Fallback for PDF/Audio/Code/etc
                      container.innerHTML = `<div class="text-center bg-neutral-900 p-8 rounded-2xl border border-neutral-800"><i class="ph-duotone ph-file text-5xl text-neutral-600 mb-4"></i><p class="text-neutral-400 text-sm font-mono">PREVIEW NOT AVAILABLE</p></div>`;
                 }
             } catch(e) {
@@ -558,6 +581,12 @@
             showModal('deleteModal');
         }
 
+        // FIX: Missing function added
+        function closeDeleteModal() {
+            hideModal('deleteModal');
+            fileToDelete = null;
+        }
+
         function confirmDelete() {
             if(!fileToDelete) return;
             const btn = document.getElementById('confirmDeleteBtn');
@@ -571,8 +600,15 @@
                     else alert("Error: " + err.message);
                 } else {
                     if(currentViewerKey === fileToDelete) closeViewer();
-                    refresh();
+                    // Remove specific element from DOM
+                    const el = document.getElementById(`file-${fileToDelete}`);
+                    if(el) el.remove();
+                    
+                    // Update Count
+                    const grid = document.getElementById('grid');
+                    document.getElementById('status').innerText = `${grid.children.length} OBJECTS`;
                 }
+                fileToDelete = null;
             });
         }
 
@@ -604,5 +640,3 @@
     </script>
 </body>
 </html>
-
-
