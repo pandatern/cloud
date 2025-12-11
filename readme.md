@@ -1,17 +1,17 @@
-PandaVault by Pandatern
+##PandaVault by Pandatern
 
 System Status: Online
 Protocol: Client-Side S3 Management
 Architecture: Serverless / Static
 Origin: Pandatern Labs
 
-// System Abstract
+# System Abstract
 
 PandaVault is a hyper-minimalist, client-side interface engineered by Pandatern. It is designed for direct interaction with S3-compatible object storage vectors (AWS, Tebi, MinIO), eliminating server-side middleware to establish a direct, encrypted channel between the user agent and the storage bucket.
 
 This repository houses the source code for the pandavault static instance, optimized for zero-latency rendering and sequential data transmission.
 
-// Core Capabilities
+# Core Capabilities
 
 Direct-to-Cloud Uplink: Bypasses intermediary servers. Credentials remain local to the execution environment (browser localStorage).
 
@@ -23,7 +23,7 @@ Monochrome Visual Matrix: A strict high-contrast interface designed for maximum 
 
 Universal File Preview: Integrated rendering engine for images, video streams, and code syntax.
 
-// Technical Stack
+# Technical Stack
 
 Runtime: Vanilla JavaScript (ES6+)
 
@@ -33,7 +33,7 @@ Storage Protocol: AWS SDK (Browser Build)
 
 PDF Logic: PDF.js Worker
 
-// Deployment Sequence
+# Deployment Sequence
 
 To initialize a local instance of PandaVault:
 
@@ -48,8 +48,6 @@ Open index.html in any standard web browser. No build step required. The system 
 Configuration:
 Input valid Access Key and Secret Key credentials upon system prompt. Ensure CORS policies on the target bucket allow GET, PUT, POST, and DELETE methods from the origin.
 
-// JS.ORG Directive
+# JS.ORG Directive
 
 This repository is structured to serve as the source for the pandavault.js.org subdomain. The content is static, lightweight, and focused purely on JavaScript-based cloud interaction utility.
-
-[END OF TRANSMISSION]
