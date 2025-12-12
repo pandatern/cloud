@@ -120,7 +120,7 @@
             <form id="loginForm" class="space-y-4">
                 <div>
                     <label class="block text-[10px] font-bold text-neutral-500 mb-1 uppercase tracking-wider">Access Key</label>
-                    <input type="text" id="ak" required autocomplete="username" inputmode="text" class="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white focus:border-white outline-none transition placeholder-neutral-800 font-mono" placeholder="Key">
+                    <input type="text" id="ak" required autocomplete="off" inputmode="text" class="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white focus:border-white outline-none transition placeholder-neutral-800 font-mono" placeholder="Key">
                 </div>
                 
                 <div>
@@ -291,6 +291,11 @@
                 connectTimeout: 10000  // 10 second connection timeout
             } 
         };
+        
+        // Timing constants
+        const LOGIN_TIMEOUT_MS = 20000; // 20 seconds for mobile networks
+        const AUTO_LOGIN_DELAY_MOBILE = 1000; // 1 second delay for mobile
+        const AUTO_LOGIN_DELAY_DESKTOP = 500; // 0.5 second delay for desktop
 
         let s3, bucketName, nextToken, currentViewerKey;
         let fileToDelete = null;
@@ -320,14 +325,17 @@
                 login(); 
             });
             
-            // Add mobile-specific handling for login button
+            // Add mobile-specific handling for login button to prevent double submission
             const loginBtn = document.getElementById('loginBtn');
             if (isMobile) {
-                loginBtn.addEventListener('touchend', (e) => {
-                    if (!isLoggingIn) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        login();
+                let touchHandled = false;
+                loginBtn.addEventListener('touchstart', (e) => {
+                    if (!isLoggingIn && !touchHandled) {
+                        touchHandled = true;
+                        // Reset flag after form submission is processed
+                        setTimeout(() => {
+                            touchHandled = false;
+                        }, 1000);
                     }
                 });
             }
@@ -447,7 +455,7 @@
                 // Add a longer delay for mobile UI stability
                 setTimeout(() => {
                     login();
-                }, isMobile ? 1000 : 500);
+                }, isMobile ? AUTO_LOGIN_DELAY_MOBILE : AUTO_LOGIN_DELAY_DESKTOP);
             }
         });
 
@@ -489,7 +497,7 @@
                 s3 = new AWS.S3();
                 bucketName = b;
 
-                // Set up login timeout (20 seconds for mobile)
+                // Set up login timeout (20 seconds for mobile networks)
                 loginTimeoutId = setTimeout(() => {
                     if (isLoggingIn) {
                         console.warn('Login timeout reached');
@@ -498,7 +506,7 @@
                         btn.disabled = false;
                         alert('Login timeout. Please check your connection and try again.');
                     }
-                }, 20000);
+                }, LOGIN_TIMEOUT_MS);
 
                 // Test connection with a minimal S3 request
                 console.log('Testing S3 connection...');
