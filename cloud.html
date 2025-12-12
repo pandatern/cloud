@@ -236,11 +236,16 @@
         <div class="glass-panel w-full max-w-md p-6 rounded-2xl">
             <h3 class="text-lg font-bold text-white mb-2 font-mono uppercase">Connection Error</h3>
             <p class="text-sm text-neutral-400 mb-4 leading-relaxed">
-                The browser was blocked by the storage bucket.
+                Unable to connect to the storage service. This could be due to:
                 <br><br>
-                <b>Admin Fix:</b> Add this CORS Rule to your S3 Bucket:
+                • Network connectivity issues<br>
+                • CORS configuration problems<br>
+                • Invalid credentials<br>
+                • Server unavailable
             </p>
+            
             <div class="bg-black border border-neutral-800 rounded-lg p-4 mb-6 overflow-x-auto">
+                <p class="text-xs text-neutral-500 mb-2">S3 CORS Configuration:</p>
                 <code class="text-[10px] text-neutral-300 font-mono whitespace-pre select-all">
 &lt;CORSConfiguration&gt;
     &lt;CORSRule&gt;
@@ -254,7 +259,11 @@
 &lt;/CORSConfiguration&gt;
                 </code>
             </div>
-            <button id="closeCorsBtn" class="w-full bg-white hover:bg-neutral-200 text-black py-3 rounded-lg text-sm font-bold transition clickable">Close</button>
+            
+            <div class="flex gap-3">
+                <button id="retryLoginBtn" class="flex-1 py-3 bg-white hover:bg-neutral-200 text-black rounded-lg text-xs font-bold transition clickable">Retry Login</button>
+                <button id="closeCorsBtn" class="flex-1 py-3 bg-transparent border border-neutral-700 hover:bg-neutral-800 text-white rounded-lg text-xs font-bold transition clickable">Close</button>
+            </div>
         </div>
     </div>
 
@@ -272,6 +281,7 @@
 
         let s3, bucketName, nextToken, currentViewerKey;
         let fileToDelete = null;
+        let loginTimeoutId = null; // Add login timeout tracking
 
         // UPLOAD STATE - Fixed for Android
         const UPLOAD_CONCURRENCY = 1; // Reduced for Android stability  
@@ -282,6 +292,7 @@
         let currentFileBytesLoaded = 0;
         let startTime = 0;
         let isUploading = false; // New flag to prevent race conditions
+        let isLoggingIn = false; // Add login state tracking
 
         // Device detection
         const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -386,17 +397,26 @@
             
             document.getElementById('helpBtn').addEventListener('click', () => showModal('corsModal'));
             document.getElementById('closeCorsBtn').addEventListener('click', () => hideModal('corsModal'));
+            document.getElementById('retryLoginBtn').addEventListener('click', () => {
+                hideModal('corsModal');
+                retryLogin();
+            });
             
             // Fix: Bind to closeDeleteModal properly
             document.getElementById('cancelDeleteBtn').addEventListener('click', closeDeleteModal);
             document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDelete);
 
-            // Auto Login Check
+            // Auto Login Check with error handling
             if(localStorage.getItem('p_ak')) {
+                console.log('Attempting auto-login with saved credentials');
                 document.getElementById('ak').value = localStorage.getItem('p_ak');
                 document.getElementById('sk').value = localStorage.getItem('p_sk');
                 document.getElementById('bucket').value = localStorage.getItem('p_bucket');
-                login();
+                
+                // Add a small delay for UI stability
+                setTimeout(() => {
+                    login();
+                }, 500);
             }
         });
 
@@ -406,42 +426,166 @@
             const sk = document.getElementById('sk').value.trim();
             const b = document.getElementById('bucket').value.trim();
 
-            if(!ak || !sk || !b) return alert("Please fill all fields");
+            if(!ak || !sk || !b) {
+                alert("Please fill all fields");
+                return;
+            }
+
+            // Prevent multiple simultaneous login attempts
+            if (isLoggingIn) {
+                console.log('Login already in progress');
+                return;
+            }
 
             const btn = document.getElementById('loginBtn');
             const originalText = btn.innerHTML;
+            
+            // Set loading state
+            isLoggingIn = true;
             btn.innerHTML = '<span class="loader"></span>';
             btn.disabled = true;
+            
+            console.log('Starting login attempt...');
 
-            AWS.config.update({ accessKeyId: ak, secretAccessKey: sk, region: 'us-east-1', ...CONFIG });
-            s3 = new AWS.S3();
-            bucketName = b;
+            try {
+                // Configure AWS with timeout settings
+                AWS.config.update({ 
+                    accessKeyId: ak, 
+                    secretAccessKey: sk, 
+                    region: 'us-east-1',
+                    ...CONFIG
+                });
+                
+                s3 = new AWS.S3();
+                bucketName = b;
 
-            s3.listObjectsV2({ Bucket: bucketName, MaxKeys: 1 }, (err) => {
+                // Set up login timeout (15 seconds)
+                loginTimeoutId = setTimeout(() => {
+                    if (isLoggingIn) {
+                        console.warn('Login timeout reached');
+                        resetLoginState();
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        alert('Login timeout. Please check your connection and try again.');
+                    }
+                }, 15000);
+
+                // Test connection with a minimal S3 request
+                console.log('Testing S3 connection...');
+                s3.listObjectsV2({ 
+                    Bucket: bucketName, 
+                    MaxKeys: 1 
+                }, (err, data) => {
+                    // Clear timeout since we got a response
+                    clearTimeout(loginTimeoutId);
+                    
+                    // Reset login state
+                    isLoggingIn = false;
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+
+                    if (err) {
+                        console.error("Login Error:", err);
+                        handleLoginError(err);
+                    } else {
+                        console.log('Login successful');
+                        handleLoginSuccess(ak, sk, b);
+                    }
+                });
+
+            } catch (e) {
+                console.error('Login setup error:', e);
+                resetLoginState();
                 btn.innerHTML = originalText;
                 btn.disabled = false;
+                alert('Login setup failed: ' + e.message);
+            }
+        }
 
-                if(err) {
-                    console.error("Login Error:", err);
-                    if(err.code === 'NetworkingError' || err.statusCode === 0 || err.code === "Forbidden") {
-                        showModal('corsModal');
-                    } else {
-                        alert(`Login Failed: ${err.message}`);
-                    }
-                } else {
-                    localStorage.setItem('p_ak', ak);
-                    localStorage.setItem('p_sk', sk);
-                    localStorage.setItem('p_bucket', b);
-                    document.getElementById('loginScreen').classList.add('hidden');
-                    document.getElementById('app').classList.remove('hidden');
-                    refresh();
-                }
-            });
+        function handleLoginError(err) {
+            console.error('Login failed:', err.code, err.statusCode, err.message);
+            
+            let errorMessage = 'Login Failed';
+            let showCorsModal = false;
+
+            // Categorize errors for better user experience
+            if (err.code === 'NetworkingError' || err.statusCode === 0) {
+                errorMessage = 'Network connection failed. Check your internet connection.';
+                showCorsModal = true;
+            } else if (err.code === 'Forbidden' || err.statusCode === 403) {
+                errorMessage = 'Access denied. Check your credentials and permissions.';
+                showCorsModal = true;
+            } else if (err.code === 'NoSuchBucket') {
+                errorMessage = 'Bucket not found. Check the bucket name.';
+            } else if (err.code === 'InvalidAccessKeyId') {
+                errorMessage = 'Invalid access key. Please check your credentials.';
+            } else if (err.code === 'SignatureDoesNotMatch') {
+                errorMessage = 'Invalid secret key. Please check your credentials.';
+            } else if (err.code === 'RequestTimeout' || err.statusCode === 408) {
+                errorMessage = 'Request timeout. Please try again.';
+            } else if (err.statusCode === 500) {
+                errorMessage = 'Server error. Please try again later.';
+            } else if (err.message && err.message.includes('CORS')) {
+                errorMessage = 'CORS configuration issue.';
+                showCorsModal = true;
+            } else {
+                errorMessage = `Login Failed: ${err.message || err.code || 'Unknown error'}`;
+            }
+
+            if (showCorsModal) {
+                showModal('corsModal');
+            } else {
+                alert(errorMessage);
+            }
+        }
+
+        function handleLoginSuccess(ak, sk, b) {
+            // Save credentials
+            localStorage.setItem('p_ak', ak);
+            localStorage.setItem('p_sk', sk);
+            localStorage.setItem('p_bucket', b);
+            
+            // Switch to main app
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
+            
+            // Load files
+            refresh();
+        }
+
+        function resetLoginState() {
+            isLoggingIn = false;
+            clearTimeout(loginTimeoutId);
+            loginTimeoutId = null;
+        }
+
+        // Add retry functionality
+        function retryLogin() {
+            resetLoginState();
+            setTimeout(() => {
+                login();
+            }, 1000); // Small delay before retry
         }
 
         function refresh() {
-            document.getElementById('grid').innerHTML = '';
+            console.log('Refreshing file list...');
+            const grid = document.getElementById('grid');
+            
+            // Clear existing content
+            grid.innerHTML = '<div class="col-span-full text-center text-neutral-600 mt-10"><div class="loader inline-block mb-2"></div><br>Syncing...</div>';
             nextToken = null;
+            
+            // Check if we have valid S3 connection
+            if (!s3 || !bucketName) {
+                console.error('No S3 connection available for refresh');
+                grid.innerHTML = '<div class="col-span-full text-center text-neutral-600 mt-10">Not connected. <br><button id="reconnectBtn" class="text-white underline mt-2">Reconnect</button></div>';
+                document.getElementById('reconnectBtn').addEventListener('click', () => {
+                    document.getElementById('loginScreen').classList.remove('hidden');
+                    document.getElementById('app').classList.add('hidden');
+                });
+                return;
+            }
+            
             loadNextPage();
         }
 
@@ -463,8 +607,35 @@
 
                 if(err) {
                     console.error("Sync Error", err);
-                    grid.innerHTML = '<div class="col-span-full text-center text-neutral-600 mt-10">Sync Failed. <br><button id="retrySync" class="text-white underline mt-2">Retry</button></div>';
-                    document.getElementById('retrySync').addEventListener('click', refresh);
+                    
+                    let errorMessage = 'Sync Failed';
+                    let showRetryButton = true;
+                    
+                    // Better error categorization
+                    if (err.code === 'NetworkingError' || err.statusCode === 0) {
+                        errorMessage = 'Network Error - Check Connection';
+                    } else if (err.code === 'Forbidden' || err.statusCode === 403) {
+                        errorMessage = 'Access Denied - Check Credentials';
+                        showRetryButton = false;
+                    } else if (err.code === 'NoSuchBucket') {
+                        errorMessage = 'Bucket Not Found';
+                        showRetryButton = false;
+                    } else if (err.code === 'RequestTimeout') {
+                        errorMessage = 'Request Timeout - Try Again';
+                    }
+                    
+                    const retryButton = showRetryButton ? '<br><button id="retrySync" class="text-white underline mt-2">Retry</button>' : '<br><button id="backToLogin" class="text-white underline mt-2">Back to Login</button>';
+                    
+                    grid.innerHTML = `<div class="col-span-full text-center text-neutral-600 mt-10">${errorMessage}${retryButton}</div>`;
+                    
+                    if (showRetryButton) {
+                        document.getElementById('retrySync')?.addEventListener('click', refresh);
+                    } else {
+                        document.getElementById('backToLogin')?.addEventListener('click', () => {
+                            document.getElementById('loginScreen').classList.remove('hidden');
+                            document.getElementById('app').classList.add('hidden');
+                        });
+                    }
                     return;
                 }
 
@@ -950,9 +1121,42 @@
 
         function logout() {
             if(confirm("Lock Vault?")) {
+                console.log('Logging out...');
+                
+                // Clear all state
+                resetLoginState();
+                resetUploadState();
+                
+                // Clear S3 connection
+                s3 = null;
+                bucketName = null;
+                nextToken = null;
+                
+                // Clear storage
                 localStorage.clear();
+                
+                // Reload page for clean state
                 location.reload();
             }
+        }
+
+        // Connection test utility
+        function testConnection() {
+            if (!s3 || !bucketName) {
+                console.log('No S3 connection to test');
+                return false;
+            }
+            
+            console.log('Testing S3 connection...');
+            s3.headBucket({ Bucket: bucketName }, (err) => {
+                if (err) {
+                    console.error('Connection test failed:', err);
+                    return false;
+                } else {
+                    console.log('Connection test successful');
+                    return true;
+                }
+            });
         }
 
         // --- UTILS ---
