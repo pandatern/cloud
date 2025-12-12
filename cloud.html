@@ -43,7 +43,12 @@
             border: 1px solid #222;
         }
         
-        .clickable { cursor: pointer; user-select: none; }
+        .clickable { 
+            cursor: pointer; 
+            user-select: none; 
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
         .upload-disabled { 
             opacity: 0.3; 
             pointer-events: none; 
@@ -89,6 +94,14 @@
                 opacity: 0 !important;
             }
         }
+        
+        /* Mobile input fixes to prevent zoom */
+        @media (max-width: 768px) {
+            input[type="text"],
+            input[type="password"] {
+                font-size: 16px !important; /* Prevents iOS zoom on focus */
+            }
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden text-sm selection:bg-white selection:text-black">
@@ -107,17 +120,17 @@
             <form id="loginForm" class="space-y-4">
                 <div>
                     <label class="block text-[10px] font-bold text-neutral-500 mb-1 uppercase tracking-wider">Access Key</label>
-                    <input type="text" id="ak" required class="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white focus:border-white outline-none transition placeholder-neutral-800 font-mono" placeholder="Key">
+                    <input type="text" id="ak" required autocomplete="off" inputmode="text" class="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white focus:border-white outline-none transition placeholder-neutral-800 font-mono" placeholder="Key">
                 </div>
                 
                 <div>
                     <label class="block text-[10px] font-bold text-neutral-500 mb-1 uppercase tracking-wider">Secret Key</label>
-                    <input type="password" id="sk" required class="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white focus:border-white outline-none transition placeholder-neutral-800 font-mono" placeholder="Secret">
+                    <input type="password" id="sk" required autocomplete="current-password" class="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white focus:border-white outline-none transition placeholder-neutral-800 font-mono" placeholder="Secret">
                 </div>
                 
                 <div>
                     <label class="block text-[10px] font-bold text-neutral-500 mb-1 uppercase tracking-wider">Bucket Name</label>
-                    <input type="text" id="bucket" required class="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white focus:border-white outline-none transition placeholder-neutral-800 font-mono" placeholder="Bucket">
+                    <input type="text" id="bucket" required autocomplete="off" inputmode="text" class="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white focus:border-white outline-none transition placeholder-neutral-800 font-mono" placeholder="Bucket">
                 </div>
                 
                 <button type="submit" id="loginBtn" class="w-full bg-white hover:bg-neutral-200 text-black font-bold py-3.5 mt-2 rounded-lg transition flex justify-center items-center gap-2 clickable">
@@ -278,6 +291,11 @@
                 connectTimeout: 10000  // 10 second connection timeout
             } 
         };
+        
+        // Timing constants
+        const LOGIN_TIMEOUT_MS = 20000; // 20 seconds for mobile networks
+        const AUTO_LOGIN_DELAY_MOBILE = 1000; // 1 second delay for mobile
+        const AUTO_LOGIN_DELAY_DESKTOP = 500; // 0.5 second delay for desktop
 
         let s3, bucketName, nextToken, currentViewerKey;
         let fileToDelete = null;
@@ -300,7 +318,28 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             // Bind Static Buttons safely
-            document.getElementById('loginForm').addEventListener('submit', (e) => { e.preventDefault(); login(); });
+            const loginForm = document.getElementById('loginForm');
+            loginForm.addEventListener('submit', (e) => { 
+                e.preventDefault(); 
+                e.stopPropagation();
+                login(); 
+            });
+            
+            // Add mobile-specific handling for login button to prevent double submission
+            const loginBtn = document.getElementById('loginBtn');
+            if (isMobile) {
+                let touchHandled = false;
+                loginBtn.addEventListener('touchstart', (e) => {
+                    if (!isLoggingIn && !touchHandled) {
+                        touchHandled = true;
+                        // Reset flag after form submission is processed
+                        setTimeout(() => {
+                            touchHandled = false;
+                        }, 1000);
+                    }
+                });
+            }
+            
             document.getElementById('refreshBtn').addEventListener('click', refresh);
             document.getElementById('logoutBtn').addEventListener('click', logout);
             document.getElementById('loadMoreAction').addEventListener('click', loadNextPage);
@@ -413,10 +452,10 @@
                 document.getElementById('sk').value = localStorage.getItem('p_sk');
                 document.getElementById('bucket').value = localStorage.getItem('p_bucket');
                 
-                // Add a small delay for UI stability
+                // Add a longer delay for mobile UI stability
                 setTimeout(() => {
                     login();
-                }, 500);
+                }, isMobile ? AUTO_LOGIN_DELAY_MOBILE : AUTO_LOGIN_DELAY_DESKTOP);
             }
         });
 
@@ -438,7 +477,6 @@
             }
 
             const btn = document.getElementById('loginBtn');
-            const originalText = btn.innerHTML;
             
             // Set loading state
             isLoggingIn = true;
@@ -459,16 +497,16 @@
                 s3 = new AWS.S3();
                 bucketName = b;
 
-                // Set up login timeout (15 seconds)
+                // Set up login timeout (20 seconds for mobile networks)
                 loginTimeoutId = setTimeout(() => {
                     if (isLoggingIn) {
                         console.warn('Login timeout reached');
                         resetLoginState();
-                        btn.innerHTML = originalText;
+                        btn.innerHTML = 'Access Vault';
                         btn.disabled = false;
                         alert('Login timeout. Please check your connection and try again.');
                     }
-                }, 15000);
+                }, LOGIN_TIMEOUT_MS);
 
                 // Test connection with a minimal S3 request
                 console.log('Testing S3 connection...');
@@ -481,7 +519,7 @@
                     
                     // Reset login state
                     isLoggingIn = false;
-                    btn.innerHTML = originalText;
+                    btn.innerHTML = 'Access Vault';
                     btn.disabled = false;
 
                     if (err) {
@@ -496,7 +534,7 @@
             } catch (e) {
                 console.error('Login setup error:', e);
                 resetLoginState();
-                btn.innerHTML = originalText;
+                btn.innerHTML = 'Access Vault';
                 btn.disabled = false;
                 alert('Login setup failed: ' + e.message);
             }
@@ -510,13 +548,17 @@
 
             // Categorize errors for better user experience
             if (err.code === 'NetworkingError' || err.statusCode === 0) {
-                errorMessage = 'Network connection failed. Check your internet connection.';
-                showCorsModal = true;
+                // Only show CORS modal if error message explicitly mentions CORS
+                if (err.message && err.message.toLowerCase().includes('cors')) {
+                    errorMessage = 'CORS configuration issue.';
+                    showCorsModal = true;
+                } else {
+                    errorMessage = 'Network connection failed. Please check your internet connection and try again.';
+                }
             } else if (err.code === 'Forbidden' || err.statusCode === 403) {
-                errorMessage = 'Access denied. Check your credentials and permissions.';
-                showCorsModal = true;
+                errorMessage = 'Access denied. Please check your credentials and bucket permissions.';
             } else if (err.code === 'NoSuchBucket') {
-                errorMessage = 'Bucket not found. Check the bucket name.';
+                errorMessage = 'Bucket not found. Please check the bucket name.';
             } else if (err.code === 'InvalidAccessKeyId') {
                 errorMessage = 'Invalid access key. Please check your credentials.';
             } else if (err.code === 'SignatureDoesNotMatch') {
@@ -525,7 +567,7 @@
                 errorMessage = 'Request timeout. Please try again.';
             } else if (err.statusCode === 500) {
                 errorMessage = 'Server error. Please try again later.';
-            } else if (err.message && err.message.includes('CORS')) {
+            } else if (err.message && err.message.toLowerCase().includes('cors')) {
                 errorMessage = 'CORS configuration issue.';
                 showCorsModal = true;
             } else {
