@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panda Cloud</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        body { background-color: #ffffff; color: #000000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .container-bg { background: #ffffff; border: 1px solid #e5e5e5; }
+        .header-bg { background: #ffffff; border-bottom: 1px solid #e5e5e5; }
+        .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #000000; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        tbody tr:hover { background-color: #f9f9f9; }
+        .btn-primary { background-color: #000000; color: #ffffff; }
+        .btn-primary:hover { background-color: #333333; }
+        .btn-secondary { background-color: #f5f5f5; color: #000000; border: 1px solid #e5e5e5; }
+        .btn-secondary:hover { background-color: #e5e5e5; }
+        .btn-danger { background-color: #ffffff; color: #dc2626; border: 1px solid #dc2626; }
+        .btn-danger:hover { background-color: #dc2626; color: #ffffff; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden bg-white">
+    <!-- Login Screen -->
+    <div id="loginScreen" class="fixed inset-0 z-50 flex items-center justify-center p-6 bg-white">
+        <div class="container-bg w-full max-w-sm p-8 rounded-lg shadow-lg">
+            <div class="flex justify-center mb-6">
+                <div class="w-16 h-16 bg-black rounded-lg flex items-center justify-center shadow-sm">
+                    <i class="ph-fill ph-cloud text-2xl text-white"></i>
+                </div>
+            </div>
+            <h2 class="text-2xl font-semibold text-center mb-2 text-black">Panda Cloud</h2>
+            <p class="text-gray-600 text-center text-sm mb-8">Secure File Management</p>
+            <form onsubmit="event.preventDefault(); login();" class="space-y-4">
+                <input type="text" id="userId" placeholder="User ID" class="w-full bg-white text-black placeholder-gray-400 px-4 py-3 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent" required>
+                <input type="password" id="password" placeholder="Password" class="w-full bg-white text-black placeholder-gray-400 px-4 py-3 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent" required>
+                <button type="submit" id="loginBtn" class="w-full btn-primary font-medium py-3 rounded transition flex justify-center items-center gap-2 mt-2">Sign In</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="hidden flex-1 flex flex-col h-full bg-white">
+        <header class="h-14 header-bg flex items-center justify-between px-6 flex-shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-black text-white rounded flex items-center justify-center text-lg">
+                    <i class="ph-fill ph-cloud"></i>
+                </div>
+                <div class="flex flex-col">
+                    <h1 id="userGreeting" class="font-medium text-sm leading-tight text-black">Files</h1>
+                    <span id="status" class="text-xs text-gray-500">Panda Cloud</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="refresh()" class="w-8 h-8 rounded btn-secondary flex items-center justify-center transition">
+                    <i class="ph-bold ph-arrows-clockwise text-sm"></i>
+                </button>
+                <button onclick="logout()" class="w-8 h-8 rounded btn-danger flex items-center justify-center transition">
+                    <i class="ph-bold ph-sign-out text-sm"></i>
+                </button>
+            </div>
+        </header>
+        
+        <main class="flex-1 overflow-y-auto p-6">
+            <div class="w-full mx-auto container-bg rounded-lg flex flex-col">
+                <div class="flex-grow">
+                    <table id="file-table" class="w-full text-sm">
+                        <thead class="border-b border-gray-200">
+                            <tr>
+                                <th class="w-12 px-4 py-3 text-left font-medium text-gray-600 text-xs"></th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600 text-xs">Name</th>
+                                <th class="w-24 px-4 py-3 text-right font-medium text-gray-600 text-xs">Size</th>
+                                <th class="w-32 px-4 py-3 text-center font-medium text-gray-600 text-xs">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="file-list-body">
+                            <!-- Rows will be inserted here by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="list-placeholder" class="flex-grow flex justify-center py-12"></div>
+                <footer id="table-footer" class="flex-shrink-0 border-t border-gray-200 px-4 py-2 text-xs text-gray-500">
+                    <!-- Footer content will be inserted here -->
+                </footer>
+            </div>
+        </main>
+
+        <!-- Upload UI -->
+        <div id="uploadStatus" class="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-white border border-gray-300 text-black px-6 py-3 rounded-full shadow-lg z-50 hidden flex items-center gap-3">
+            <div class="spinner w-4 h-4 border-2"></div>
+            <span class="text-sm">Uploading...</span>
+        </div>
+        <label class="fixed bottom-6 right-6 z-40 group cursor-pointer">
+            <div class="w-12 h-12 btn-primary rounded-full flex items-center justify-center shadow-lg transition transform group-hover:scale-105 group-active:scale-95">
+                <i class="ph-bold ph-plus text-lg text-white group-hover:rotate-90 transition duration-300"></i>
+            </div>
+            <input type="file" multiple class="hidden" onchange="handleUpload(this)">
+        </label>
+    </div>
+
+    <!-- File Viewer Modal -->
+    <div id="iframe-viewer" class="fixed inset-0 z-50 bg-white hidden flex-col">
+        <!-- Header bar -->
+        <div class="absolute top-0 left-0 w-full p-4 flex justify-between items-center z-20 bg-white border-b border-gray-200">
+            <span id="viewer-title" class="text-sm text-black font-medium truncate max-w-md"></span>
+            <div class="flex items-center gap-2">
+                <button id="viewer-download-btn" class="w-8 h-8 flex items-center justify-center btn-secondary rounded text-black hover:bg-gray-200" style="display: none;">
+                    <i class="ph-bold ph-download text-sm"></i>
+                </button>
+                <button onclick="closeIframeViewer()" class="w-8 h-8 flex items-center justify-center btn-secondary rounded text-black hover:bg-gray-200">
+                    <i class="ph-bold ph-x text-sm"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Spinner -->
+        <div id="viewer-spinner" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
+            <div class="spinner !w-8 !h-8"></div>
+        </div>
+        
+        <!-- Iframe container with proper spacing -->
+        <div class="flex-1 pt-16 pb-4 px-4">
+            <iframe id="viewer-iframe" class="w-full h-full border border-gray-200 rounded bg-white"></iframe>
+        </div>
+    </div>
+
+    <script>
+        let sessionId = null;
+
+        // --- Helper Functions ---
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 right-4 z-50 px-4 py-2 rounded text-white shadow-lg transform transition-all duration-300 translate-x-full ${
+                type === 'error' ? 'bg-red-600' : 
+                type === 'success' ? 'bg-green-600' : 'bg-gray-700'
+            }`;
+            toast.innerText = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => toast.style.transform = 'translateX(0)', 100);
+            setTimeout(() => {
+                toast.style.transform = 'translateX(full)';
+                setTimeout(() => document.body.removeChild(toast), 300);
+            }, 3000);
+        }
+
+        function getIconForFile(filename) {
+            const extension = filename.split('.').pop().toLowerCase();
+            const iconMap = {
+                'pdf': 'ph-file-pdf', 'zip': 'ph-file-archive', 'rar': 'ph-file-archive', '7z': 'ph-file-archive',
+                'mp3': 'ph-file-audio', 'wav': 'ph-file-audio', 'ogg': 'ph-file-audio',
+                'mp4': 'ph-file-video', 'webm': 'ph-file-video', 'mov': 'ph-file-video',
+                'txt': 'ph-file-text', 'md': 'ph-file-text', 'doc': 'ph-file-doc', 'docx': 'ph-file-doc',
+                'jpg': 'ph-image', 'jpeg': 'ph-image', 'png': 'ph-image', 'gif': 'ph-image', 'webp': 'ph-image'
+            };
+            return iconMap[extension] || 'ph-file';
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes == 0) return '0 B';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        // --- Viewer Functions ---
+        function openFile(presignedUrl, downloadUrl, filename) {
+            // Always try to preview first, with download as backup
+            openIframeViewer(presignedUrl, filename, downloadUrl);
+        }
+
+        function openIframeViewer(url, title, downloadUrl) {
+            const viewer = document.getElementById('iframe-viewer');
+            const iframe = document.getElementById('viewer-iframe');
+            const spinner = document.getElementById('viewer-spinner');
+            
+            document.getElementById('viewer-title').innerText = title;
+            
+            // Add download button to viewer header
+            const downloadBtn = document.getElementById('viewer-download-btn');
+            downloadBtn.onclick = () => downloadFile(downloadUrl, title);
+            downloadBtn.style.display = 'block';
+            
+            spinner.style.display = 'block';
+            iframe.style.opacity = '0';
+            
+            iframe.src = url;
+            iframe.onload = () => {
+                spinner.style.display = 'none';
+                iframe.style.opacity = '1';
+            };
+            iframe.onerror = () => {
+                spinner.style.display = 'none';
+                showToast('Unable to preview. Downloading file...', 'info');
+                closeIframeViewer();
+                downloadFile(downloadUrl, title);
+            };
+            
+            viewer.classList.remove('hidden');
+            viewer.classList.add('flex');
+        }
+
+        function downloadFile(url, filename) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast(`Downloading ${filename}...`, 'success');
+        }
+
+        function closeIframeViewer() {
+            const viewer = document.getElementById('iframe-viewer');
+            const iframe = document.getElementById('viewer-iframe');
+            const downloadBtn = document.getElementById('viewer-download-btn');
+            
+            viewer.classList.add('hidden');
+            viewer.classList.remove('flex');
+            iframe.src = 'about:blank';
+            downloadBtn.style.display = 'none';
+        }
+
+        // --- Auth Functions ---
+        async function login() {
+            const userId = document.getElementById('userId').value;
+            const password = document.getElementById('password').value;
+            if (!userId || !password) { 
+                showToast('User ID and Password are required.', 'error'); 
+                return; 
+            }
+
+            const loginBtn = document.getElementById('loginBtn');
+            const originalLoginBtnHtml = loginBtn.innerHTML;
+            loginBtn.innerHTML = '<div class="spinner"></div>';
+            
+            try {
+                const response = await fetch('/api/login', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ userId: userId, password: password }) 
+                });
+                const result = await response.json();
+                if (result.success) { 
+                    sessionId = result.sessionId; 
+                    document.getElementById('loginScreen').classList.add('hidden'); 
+                    document.getElementById('app').classList.remove('hidden');
+                    document.getElementById('userGreeting').innerText = `Files: ${userId}`;
+                    document.getElementById('viewer-iframe').addEventListener('load', () => {
+                        document.getElementById('viewer-spinner').style.display = 'none';
+                        document.getElementById('viewer-iframe').style.opacity = '1';
+                    });
+                    refresh();
+                } else { 
+                    showToast('Login Failed: ' + result.error, 'error'); 
+                }
+            } catch (error) { 
+                showToast('Connection Error: ' + error.message, 'error');
+            } finally { 
+                loginBtn.innerHTML = originalLoginBtnHtml;
+            }
+        }
+
+        function logout() { 
+            sessionId = null; 
+            location.reload(); 
+        }
+
+        // --- Core App Functions ---
+        async function refresh() {
+            const tbody = document.getElementById('file-list-body');
+            const placeholder = document.getElementById('list-placeholder');
+            const footer = document.getElementById('table-footer');
+            tbody.innerHTML = '';
+            footer.innerHTML = '';
+            placeholder.innerHTML = '<div class="spinner border-gray-600 border-t-white"></div>';
+            
+            try {
+                const response = await fetch('/api/files', { headers: { 'X-Session-ID': sessionId } });
+                const result = await response.json();
+                placeholder.innerHTML = '';
+                if (result.success && result.files.length > 0) {
+                    result.files.forEach(file => {
+                        const row = tbody.insertRow();
+                        row.className = 'border-b border-gray-100';
+                        
+                        const iconClass = getIconForFile(file.key);
+                        
+                        row.innerHTML = `
+                            <td class="px-4 py-3 text-gray-600 text-lg"><i class="ph ${iconClass}"></i></td>
+                            <td class="px-4 py-3 truncate text-black" title="${file.key}">${file.key}</td>
+                            <td class="px-4 py-3 text-right text-gray-600">${formatBytes(file.size)}</td>
+                            <td class="px-4 py-3 text-center space-x-2">
+                                <button class="open-btn btn-secondary px-3 py-1 rounded text-xs">Open</button>
+                                <button class="delete-btn btn-danger px-3 py-1 rounded text-xs">Delete</button>
+                            </td>
+                        `;
+
+                        // Single "Open" button - always try preview first
+                        row.querySelector('.open-btn').addEventListener('click', () => openFile(file.presignedUrl, file.downloadUrl, file.key));
+                        
+                        const deleteBtn = row.querySelector('.delete-btn');
+                        if (deleteBtn) {
+                            deleteBtn.addEventListener('click', async (e) => {
+                                e.stopPropagation();
+                                if (confirm(`Delete "${file.key}" permanently?`)) {
+                                    row.style.opacity = '0.5';
+                                    deleteBtn.disabled = true;
+                                    deleteBtn.innerText = 'Deleting...';
+
+                                    try {
+                                        const deleteResponse = await fetch('/api/delete', { 
+                                            method: 'POST', 
+                                            headers: { 
+                                                'Content-Type': 'application/json', 
+                                                'X-Session-ID': sessionId 
+                                            }, 
+                                            body: JSON.stringify({ key: file.key }) 
+                                        });
+
+                                        if (deleteResponse.ok) {
+                                            const result = await deleteResponse.json();
+                                            if (result.success) {
+                                                row.remove();
+                                                showToast(`Deleted ${file.key}`, 'success');
+                                            } else {
+                                                showToast("Delete failed: " + (result.error || "Unknown server error"), 'error');
+                                                row.style.opacity = '1';
+                                                deleteBtn.disabled = false;
+                                                deleteBtn.innerText = 'Delete';
+                                            }
+                                        } else {
+                                            try {
+                                                const errResult = await deleteResponse.json();
+                                                showToast("Delete failed: " + (errResult.error || "Server error"), 'error');
+                                            } catch {
+                                                showToast("Delete failed: Server error", 'error');
+                                            }
+                                            row.style.opacity = '1';
+                                            deleteBtn.disabled = false;
+                                            deleteBtn.innerText = 'Delete';
+                                        }
+                                    } catch (err) {
+                                        showToast("Error during deletion: " + err.message, 'error');
+                                        row.style.opacity = '1';
+                                        deleteBtn.disabled = false;
+                                        deleteBtn.innerText = 'Delete';
+                                    }
+                                }
+                            });
+                        }
+                    });
+                    footer.innerText = `${result.files.length} files`;
+                } else if (result.error) {
+                    placeholder.innerHTML = `<div class="text-center text-red-600 mt-10">Error: ${result.error}</div>`;
+                } else {
+                    placeholder.innerHTML = `<div class="text-center text-gray-400 mt-10">No files</div>`;
+                    footer.innerText = '0 files';
+                }
+            } catch (e) { 
+                placeholder.innerHTML = `<div class="text-center text-red-600 mt-10">Connection error</div>`; 
+            }
+        }
+
+        async function handleUpload(input) {
+            const files = Array.from(input.files); if(files.length === 0) return;
+            const status = document.getElementById('uploadStatus');
+            const statusText = status.querySelector('span');
+            status.classList.remove('hidden');
+            
+            for (const file of files) {
+                try {
+                    statusText.innerText = `Signing ${file.name}...`;
+                    const signRes = await fetch('/api/sign-upload', { method: 'POST', headers: { 'X-Session-ID': sessionId, 'Content-Type': 'application/json' }, body: JSON.stringify({ key: file.name }) });
+                    const signData = await signRes.json();
+                    if(!signData.success) throw new Error("Could not sign upload: " + signData.error);
+
+                    await new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('PUT', signData.url, true);
+                        xhr.upload.onprogress = (event) => {
+                            if (event.lengthComputable) {
+                                const percentComplete = Math.round((event.loaded / event.total) * 100);
+                                statusText.innerText = `Uploading ${file.name}: ${percentComplete}%`;
+                            }
+                        };
+                        xhr.onload = () => {
+                            if (xhr.status >= 200 && xhr.status < 300) { resolve(xhr.response); } 
+                            else { reject(new Error(`S3 upload failed: ${xhr.status} ${xhr.statusText}`)); }
+                        };
+                        xhr.onerror = () => reject(new Error("Network error during upload."));
+                        xhr.send(file);
+                    });
+                } catch (error) { 
+                    showToast(`Upload error for ${file.name}: ${error.message}`, 'error'); 
+                }
+            }
+            status.classList.add('hidden'); 
+            input.value = ''; 
+            refresh();
+        }
+    </script>
+</body>
+</html>

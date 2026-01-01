@@ -1,0 +1,40 @@
+# Environment files
+.env
+
+# SSH keys  
+Baymax.txt
+*.pem
+*.key
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+*.o
+*.so
+*.dylib
+
+# Nim cache
+nimcache/
+
+# Backup files
+*~
+*.bak
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Deployment files
+*.tar.gz
+*.exp
+deploy.sh
+auto_deploy.exp
+DEPLOYMENT_GUIDE.md
