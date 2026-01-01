@@ -1,15 +1,6 @@
-# 🐼 Panda Cloud
+#  Panda Cloud
 
 A lightweight, secure file management system with direct S3 streaming capabilities.
-
-## Features
-
-- 🔐 **Multi-user authentication** with individual S3 credentials
-- 📁 **Universal file preview** - supports images, PDFs, videos, and more
-- ☁️ **Direct S3 streaming** - unlimited file sizes, zero server storage
-- 🎨 **Clean interface** - professional white/black theme
-- 🚀 **Lightweight** - 972KB binary, minimal resource usage
-- 🔒 **Secure** - AWS Signature V4 authentication, presigned URLs
 
 ## Architecture
 
